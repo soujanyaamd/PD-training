@@ -3,14 +3,11 @@
 > The training is arraged by Ansys Software Pvt. Lmt.  
 > The training covers the RTL2GDSII Workflow.
 
-<details>
-<summary>
-How to talk to computers?
-</summary>
-
-## Introduction to Board, Package, Chip, Pads, Core, Die, IC and IP
+## How to talk to computers?
+  
+### Introduction to Board, Package, Chip, Pads, Core, Die, IC and IP
 In this section, we will understand the difference between the terms Board, Package, Chip, IC, etc.
-### Board
+#### Board
 A **Printed Circuit Board (PCB)** is a flat board made with insulating material and has conductive pathways carved on its surface to connect various electrical components such as microprocessors, sensors, resistors, capacitors, diodes, transistors, etc.
 The commonly available boards in the market such as Arduino are examples of PCBs.
 ![Arduino UNO](https://github.com/user-attachments/assets/77f9ef11-a959-4d07-84f0-d5704352b8ee)
@@ -21,39 +18,66 @@ The typical components on a Board can be understood with the help of a diagram.
 The Black color component (Highlighted in Yellow) sitting at the centre of the Board is the Processor/SoC.
 The rest of the components such as the GPIO pins, Power pins, external memory chips such as SDRAM, JTAG-UART pins to program the processor, ADCs, etc. are located around the Processor.
 
-### Package
+#### Package
 A **Package** is a supporting case within which the Chip is encapsulated. It prevents physical damage and corrosion.
 The Package also supports the electrical contacts which connect the Chip to the Board.  
 There are different types of Packages available in the market such as Quad Flat No-Lead Packages (QFN-48).  
 This is a 7x7mm<sup>2</sup> package with 48 pins.
+
 ![A Typical Package](https://github.com/user-attachments/assets/9d640fc8-6062-4353-b4c3-34f32b3098c0)
 
-### Chip
+#### Chip
 A **Chip** typically sits at the centre of a Package. The Chip is connected to the Package using _Wire Bonds_. 
 This enables the Chip to communicate with the outside world.  
 <img src="https://github.com/user-attachments/assets/14473911-230e-4ed1-b2b1-fd8236dc6ef9" width="507">
 <img src="https://github.com/user-attachments/assets/38392a8c-ba26-42b5-b4de-b4e310ab1dcd" wicth="400">
 
-### Pad
+#### Pad
 A **Pad** is the peripheral area of a Chip on which the Pins are soldered to. These are small conductive areas on the surface of the Chip.
 They make electrical connections between the internal circuitry of the chip and the external package leads or pins.
 They are typically made of a metal such as aluminum or copper.
 The signals coming into the chip come through the Pads.
 
-### Core
+#### Core
 The **Core** of the Chip is located within the Pads. The Core is where the digital logic of the Chip is present.
 
-### Die
+#### Die
 The **Die** encompasses both the Core and the Pads. The Die is manufactured on a Silicon Wafer.
 Infact multiple dies are manufactured on a single Silicon Wafer.  
+
 ![Die](https://github.com/user-attachments/assets/b31cdf31-c76e-4126-86e9-881b84f7246b)
 
-### IPs and Macros
+#### IPs and Macros
 Multiple elements sit within the Core of a Chip. It includes the SoC, SPI, PLLs, ADCs, DACs, SRAM, etc.  
 PLLs, ADCs, SRAMs are **Foundary IPs**.These are patented by the Foundrys and can be used by the Chip Designer.  
 The repeatable blocks of digital logic are called **Macros**.  
+
 ![IPs and Macros](https://github.com/user-attachments/assets/96cfe919-c296-409d-a954-d62cd04c1479)
-</details>
+
+### Introduction to RISC-V Architecture
+#### How is a High Level Language such as C, C++ executed on a Physical Layout?
+**Instruction Set Architecture (ISA)** is the interface between software and hardware. It specifies what the processor is capable of doing and how it gets done.  
+If a C-program needs to be run on hardware, then it is first compiled into its **Assembly Level Language** (ALL) Program by a Compiler. Each Assembly Language instuction maps to a specific machine instruction in the ISA.  
+The Assembler converts the ALL Program into ISA which is specific to each processor. For e.g. the **RISC-V** (Reduced Instruction Set Computing - V) ISA.  
+The ISA is nothing but Machine Level Language or binary code that contains 0's and 1's that are the digital logic signals executed on a hardware.  
+In order that the Hardware supports all the machine code provieded by the ISA, the ISA specifications must be implemented using a **Hardware Description Language** / **Register Transfer Level (RTL)** Code such as **Verilog**.  
+This RTL Code/Netlist is converted into the GDS following the standard PnR Flow or the **RTL2GDS** Flow.
+
+![HLL to Physical Layout](https://github.com/user-attachments/assets/c63f03b8-fada-4f13-bcc7-7fc150ed1465)
+
+Detailed Version of High Level Language Conversion to Machine Level Language
+
+![Detailed Version](https://github.com/user-attachments/assets/2db190a3-558b-4449-8445-67eed15ace73)
+
+#### How is binary code executed on a Hardware?
+Because of the ISA, if a hardware receives a particular pattern of binary digits, it understands that it has to perform a specific operation.
+For e.g., the pattern 00110010101011000011 implies addition.
+The HDL of the ISA has to be written to make the Hardware implement the binary code.
+The RTL is synthesised into a Netlist which consists of Standard cells, registers etc. that can be implemented on a Layout.
+This is process of converting the RTL to GDS (Layout Information file) is known as Physical Design or RTL2GDS Flow.
+
+![ISA to Hardware](https://github.com/user-attachments/assets/6aa5b4ae-c0f0-4b4e-85b0-14aacfe0a00c)
+
 
 ## Prepare Deisgn
 ![image](https://github.com/user-attachments/assets/6d505db9-dcd0-4ce5-b25c-2a7bff1a16d6)
