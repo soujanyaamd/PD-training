@@ -71,12 +71,65 @@ Detailed Version of High Level Language Conversion to Machine Level Language
 
 #### How is binary code executed on a Hardware?
 Because of the ISA, if a hardware receives a particular pattern of binary digits, it understands that it has to perform a specific operation.
-For e.g., the pattern 00110010101011000011 implies addition.
-The HDL of the ISA has to be written to make the Hardware implement the binary code.
+For e.g., the pattern 00110010101011000011 implies addition.  
+The HDL of the ISA has to be written to make the Hardware implement the binary code.  
 The RTL is synthesised into a Netlist which consists of Standard cells, registers etc. that can be implemented on a Layout.
 This is process of converting the RTL to GDS (Layout Information file) is known as Physical Design or RTL2GDS Flow.
 
 ![ISA to Hardware](https://github.com/user-attachments/assets/6aa5b4ae-c0f0-4b4e-85b0-14aacfe0a00c)
+
+### Introduction to SoC Design and OpenLane
+#### Digital ASIC Design using Open Source Materials
+ASIC Design requires 3 main components:
+1. RTL, IPs
+2. PDKs
+3. CAD Tools / EDA Tools
+
+The table lists the available Open Source options for the above mentioned components.
+| Component | Open Source |
+|-----------|-------------|
+|RTL        | librecores.org, opencores.org, github.com |
+|EDA Tools  | Qflow, OpenRoad, OpenLane, Magic |
+|PDKs       | Google+Skywater 130nm Production PDK |
+
+##### What is a PDK?
+A **PDK** or a **Process Design Kit** is the interface between the Fabs and the Designer. It contains the files used to model a fabrication process for the EDA tools used to design an IC.
+It contains
+1. Process Design Rules - DRC, LVS, PEX
+2. Device Models
+3. Standard Cell Libraries
+4. I/O Libraries
+5. etc.
+
+ASIC Design Fow is a complex process that involves many steps. **OpenLane** is a software that streamlines this flow, and brings all the required open source components for the ASIC Design Flow under one umbrella.
+
+#### Simplified RTL to GDS Flow
+The ASIC Design Flow consists of muliple steps such as Synthesis, Floor Planning, Power Planning, Plcaement, Clock Tree Synthesis, Routing and Signoff/Tape-out.
+
+![Simplified RTL to GDS Flow](https://github.com/user-attachments/assets/a9ca0a77-3d42-47fb-a527-fb39a574fa99)
+
+##### Synthesis
+Synthesis converts the RTL to a circuit that can be constructed from the cells of the Standard Cell Library.
+The output of Syntesis is a **Gate Level Netlist**. It is functionally equivalent to the RTL.
+
+![Synthesis](https://github.com/user-attachments/assets/6c0a28ce-523a-479e-83bd-118e5af1ca6e)
+
+
+The Standard cells from a library can be implemented on a layout in a very even fashion as they have defined heights and widths that are multiples of the basic standard cell inverter with 1X drive strength.  
+Each Standard cell has different models/views that are interpreted by different EDA Tools.  
+The Liberty View includes Electrical Model of the cells such as Delay Models and Power Models.  
+The Spice View or the CDL View of the cells is present.
+The cells also have Layout Views - GDSII Views and LEF Views.
+
+##### Floor Planning and Power Planning
+Floor Planning involves determining the shape and size of each bloack and allocating it a specific place in the Core of the Chip. Therby it helps in defining the routes between the blocks.
+**Chip Floor Planning** - Partitions the chip between different building blocks and places the I/O Pads.
+**Macro Floor Planning** - The dimensions, Pin locations and rows are defined for the Macros.
+**Power Planning** - Creates a power grid such that each and every macro, standard cell and all other blocks present in the design are connected to the Power Grid.
+It consists of horizontal and vertical metal straps. This structure reduces the resistance and hence the IR Drop. Typically, uppper metal layers are used for Power Distribution Network as they are thicker than lower metal layers. Thus have lesser resistance.
+
+![Chip Floor Planning](https://github.com/user-attachments/assets/5f65821a-1a6a-4b92-9b7f-67f9b9736100)
+![Power Planning](https://github.com/user-attachments/assets/c4e83de4-31b3-4c41-8c35-eaff062d84c5)
 
 
 ## Prepare Deisgn
