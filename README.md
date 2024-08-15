@@ -131,6 +131,90 @@ It consists of horizontal and vertical metal straps. This structure reduces the 
 ![Chip Floor Planning](https://github.com/user-attachments/assets/5f65821a-1a6a-4b92-9b7f-67f9b9736100)
 ![Power Planning](https://github.com/user-attachments/assets/c4e83de4-31b3-4c41-8c35-eaff062d84c5)
 
+##### Placement
+**Placement** involves assigning a location to every standard cell in the design.  
+The objectives of Placement include placing all the standard cells in legal locations, minimize the critical net delays in the design and reduce possibilities of routing congestion.  
+
+![Placement](https://github.com/user-attachments/assets/2c8d91a4-861b-4a60-801c-37fb771006c9)
+
+Placement is typically done in 2 steps.
+1. **Global Placement**: During this step, each cell is placed in a rough position, some of the constraints may be violated here. Like, certain cells may overlap. It tries to find an optimum position for each cell.  
+   ![After Global Placement](https://github.com/user-attachments/assets/213dd13d-bf23-4a43-9387-77fadb3d0484)
+
+2. **Detailed Placement**: During this step, the position of each cell is fixed making sure all the placement constraints are met and everything is legal.  
+   ![After Detailed Placement](https://github.com/user-attachments/assets/b5a5bc13-4bf7-4e41-b06b-476c5c440240)
+
+##### Clock Tree Synthesis
+During **Clock Tree Synthesis** the clock signal is connected from the clock port to clock pin of all the sequential elements in the design.  
+The clock network is usually designed as a Tree structure (X-shaped, H-shaped, etc.) to ensure that clock is delayed to every element with minimum skew.
+Clock Buffers and Inverters are inserted in the Clock network to balance the skews and delays.  
+![CTS](https://github.com/user-attachments/assets/98ed5404-51a1-4530-93ed-ca1882c71918)
+
+##### Routing
+**Routing** is the process of creating physical connections between the signal pins of various cells in the design.  
+The PDK defines the available metal layers and their thickeness, pitch and the minimum width. The Router uses this information to create a pattern of horizontal and verical metal tracks to achive the specified connections in the netlist. The PDK also defines the vias that connect the wire segments of different metals together.  
+![Horizontal and Vertical Routing](https://github.com/user-attachments/assets/2d225e00-70c0-4357-ab5a-03539b7d7559)
+
+Routing Grids are huge. So, divide and conquer technique is used for the Routing.
+1. Global Routing: It generates routing guides.
+2. Detailed Routing: It uses the routing guides to implement the actual wiring.
+
+![Routing](https://github.com/user-attachments/assets/c3f80e83-7895-4670-9e77-0c5e3a40276f)
+
+###### Skywater PDK
+The Skywater PDK contains 6 layers.  
+The bottom-most layer is made of Titanium Nitride. This is also known as the local interconnect layer.
+The remaining 5 layers are made of Aluminium.  
+![Skywater PDK Technology Stack up](https://github.com/user-attachments/assets/01ac763f-c5d5-428a-a4a2-0654e7d2e7a2)
+
+##### Sign-off
+Before the final layout is sent to the Foundry, a number of verifications have to be done on it. This includes Physical verification, Timing Verification, EM-IR Analysis, etc. This step is known as **Sign-off**.
+1. **Physical Verification**
+   1. DRC - Design Rule Checking - It ensures that all the design rules defined in the PDK by the foundry are met.
+   2. LVS - Layout vs. Schematic - It ensures that the final layout is physically same as the original gate-level netlist that we started with.
+2. **Timing Verification**
+   1. STA - Static Timing Analysis - It ensures that all the setup and hold constraints are met.
+
+#### Introduction to OpenLane
+**OpenLane** is an open source tool that enables the users to experience the RTL to GDS flow with open source PDKs, Open EDA tools and Open RTL.  
+StiVe is a fmily of SoC at OpenLane that uses all open source elements.
+OpenLane is tuned for Skywater 130nm Open Source PDK. It can be used to harden chips and macros. It supports an automated push-button flow and an interactive flow.
+It also supports design space exploration to find the best configuration for your design.
+
+##### OpenLane Detailed RTL2GDS Workflow
+The detailed RTL2GDS workflow in OpenLane is shown below. OpenLane uses a number of open source tools like Yosys for Synthesis, OpenSTA for timing, etc.  
+
+![OpenLane Detailed RTL2GDS Flow](https://github.com/user-attachments/assets/6cdf572f-ee85-43a5-8af5-eb4d1cd7a99e)
+
+**Synthesis Exploration** generates a graph of Delay vs. Area for various synthesised netlists and helps the designer to pick the best suitable netlist.  
+![Synthesis Exploration](https://github.com/user-attachments/assets/8aa66ec5-e15a-4bf5-aef2-b428c34e51c4)
+
+**Design Exploration** shows different design metrics like runtime, cell count, Core Utilization percetage, Violations, Global routing adjustment factor, etc. that help the designer to take an informed decision about the design configuration.
+![Design Exploration](https://github.com/user-attachments/assets/ba9b476c-7517-4eae-aca6-deef41374f3a)
+
+**Design For Testing** (DFT) is an optional step that can be performed in OpenLane. It basically inserts an logic circuitry into the design that is useful for testing.
+![DFT](https://github.com/user-attachments/assets/03044f62-ebd2-42b5-8fdf-881cad857551)
+
+The **Physical Implementation or Placement and Routing (PnR)** is done by the OpenRoad App. It does several steps such as Floor Planning, Power Planning, Decaps and Tap cells insertion, Placement, CTS and Signal Routing.
+![PnR](https://github.com/user-attachments/assets/5b0197fd-c6f9-4bfe-895b-adc4c78a1e93)
+
+**Logic Equivalance Checking (LEC)** needs to be done in order to make sure that the original netlist is same as the detailed netlist generated after PnR. This is done using Yosys.
+![LEC](https://github.com/user-attachments/assets/35909834-7496-4d48-9cc4-7dd9db6ae10a)
+
+**Antenna Effect** - A routed metal segment can act as an antenna as reactive ion etching causes the charges to accumulate on the wire. Due to this the transistor gates can be damaged during etching.  
+![Antenna Effect](https://github.com/user-attachments/assets/8da0b064-ba2b-4a1b-86dd-994373ae39d1)
+
+There are 2 solutions to handle the antenna effect.
+1. Bridging - Route the signal by using an immediately higher level metal for a small portion as a bridge between the same metal routes.
+2. Add Antenna Diodes to leak away the excess charges.  
+![Dealing with Antenna Rule Violations](https://github.com/user-attachments/assets/39375a16-0ab5-42f4-9150-fc64c4ad52a3)
+
+In this workshop, we have taken a preventive approach to add a fake antenna diode next to every cell input after placement. Then ANtenna Checker (in Magic tool) is run on the routed layout. If the violations are reported on a cell input, then the fake diodes are replaced with real ones.
+![Antenna Diodes insertion](https://github.com/user-attachments/assets/0ce89c21-3653-4ea3-9fea-b8cb7bee4a75)
+
+**Magic and Netgen** are used for Physical verification.  
+Magic is used for DRC and Spice extraction from the Layout.
+Netgen and Magic are used for LVS verification.
 
 ## Prepare Deisgn
 ![image](https://github.com/user-attachments/assets/6d505db9-dcd0-4ce5-b25c-2a7bff1a16d6)
