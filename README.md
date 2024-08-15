@@ -78,8 +78,8 @@ This is process of converting the RTL to GDS (Layout Information file) is known 
 
 ![ISA to Hardware](https://github.com/user-attachments/assets/6aa5b4ae-c0f0-4b4e-85b0-14aacfe0a00c)
 
-### Introduction to SoC Design and OpenLane
-#### Digital ASIC Design using Open Source Materials
+## Introduction to SoC Design and OpenLane
+### Digital ASIC Design using Open Source Materials
 ASIC Design requires 3 main components:
 1. RTL, IPs
 2. PDKs
@@ -92,7 +92,7 @@ The table lists the available Open Source options for the above mentioned compon
 |EDA Tools  | Qflow, OpenRoad, OpenLane, Magic |
 |PDKs       | Google+Skywater 130nm Production PDK |
 
-##### What is a PDK?
+#### What is a PDK?
 A **PDK** or a **Process Design Kit** is the interface between the Fabs and the Designer. It contains the files used to model a fabrication process for the EDA tools used to design an IC.
 It contains
 1. Process Design Rules - DRC, LVS, PEX
@@ -103,12 +103,12 @@ It contains
 
 ASIC Design Fow is a complex process that involves many steps. **OpenLane** is a software that streamlines this flow, and brings all the required open source components for the ASIC Design Flow under one umbrella.
 
-#### Simplified RTL to GDS Flow
+### Simplified RTL to GDS Flow
 The ASIC Design Flow consists of muliple steps such as Synthesis, Floor Planning, Power Planning, Plcaement, Clock Tree Synthesis, Routing and Signoff/Tape-out.
 
 ![Simplified RTL to GDS Flow](https://github.com/user-attachments/assets/a9ca0a77-3d42-47fb-a527-fb39a574fa99)
 
-##### Synthesis
+#### Synthesis
 Synthesis converts the RTL to a circuit that can be constructed from the cells of the Standard Cell Library.
 The output of Syntesis is a **Gate Level Netlist**. It is functionally equivalent to the RTL.
 
@@ -121,7 +121,7 @@ The Liberty View includes Electrical Model of the cells such as Delay Models and
 The Spice View or the CDL View of the cells is present.
 The cells also have Layout Views - GDSII Views and LEF Views.
 
-##### Floor Planning and Power Planning
+#### Floor Planning and Power Planning
 Floor Planning involves determining the shape and size of each bloack and allocating it a specific place in the Core of the Chip. Therby it helps in defining the routes between the blocks.
 **Chip Floor Planning** - Partitions the chip between different building blocks and places the I/O Pads.
 **Macro Floor Planning** - The dimensions, Pin locations and rows are defined for the Macros.
@@ -131,7 +131,7 @@ It consists of horizontal and vertical metal straps. This structure reduces the 
 ![Chip Floor Planning](https://github.com/user-attachments/assets/5f65821a-1a6a-4b92-9b7f-67f9b9736100)
 ![Power Planning](https://github.com/user-attachments/assets/c4e83de4-31b3-4c41-8c35-eaff062d84c5)
 
-##### Placement
+#### Placement
 **Placement** involves assigning a location to every standard cell in the design.  
 The objectives of Placement include placing all the standard cells in legal locations, minimize the critical net delays in the design and reduce possibilities of routing congestion.  
 
@@ -144,13 +144,13 @@ Placement is typically done in 2 steps.
 2. **Detailed Placement**: During this step, the position of each cell is fixed making sure all the placement constraints are met and everything is legal.  
    ![After Detailed Placement](https://github.com/user-attachments/assets/b5a5bc13-4bf7-4e41-b06b-476c5c440240)
 
-##### Clock Tree Synthesis
+#### Clock Tree Synthesis
 During **Clock Tree Synthesis** the clock signal is connected from the clock port to clock pin of all the sequential elements in the design.  
 The clock network is usually designed as a Tree structure (X-shaped, H-shaped, etc.) to ensure that clock is delayed to every element with minimum skew.
 Clock Buffers and Inverters are inserted in the Clock network to balance the skews and delays.  
 ![CTS](https://github.com/user-attachments/assets/98ed5404-51a1-4530-93ed-ca1882c71918)
 
-##### Routing
+#### Routing
 **Routing** is the process of creating physical connections between the signal pins of various cells in the design.  
 The PDK defines the available metal layers and their thickeness, pitch and the minimum width. The Router uses this information to create a pattern of horizontal and verical metal tracks to achive the specified connections in the netlist. The PDK also defines the vias that connect the wire segments of different metals together.  
 ![Horizontal and Vertical Routing](https://github.com/user-attachments/assets/2d225e00-70c0-4357-ab5a-03539b7d7559)
@@ -161,13 +161,13 @@ Routing Grids are huge. So, divide and conquer technique is used for the Routing
 
 ![Routing](https://github.com/user-attachments/assets/c3f80e83-7895-4670-9e77-0c5e3a40276f)
 
-###### Skywater PDK
+##### Skywater PDK
 The Skywater PDK contains 6 layers.  
 The bottom-most layer is made of Titanium Nitride. This is also known as the local interconnect layer.
 The remaining 5 layers are made of Aluminium.  
 ![Skywater PDK Technology Stack up](https://github.com/user-attachments/assets/01ac763f-c5d5-428a-a4a2-0654e7d2e7a2)
 
-##### Sign-off
+#### Sign-off
 Before the final layout is sent to the Foundry, a number of verifications have to be done on it. This includes Physical verification, Timing Verification, EM-IR Analysis, etc. This step is known as **Sign-off**.
 1. **Physical Verification**
    1. DRC - Design Rule Checking - It ensures that all the design rules defined in the PDK by the foundry are met.
@@ -175,13 +175,13 @@ Before the final layout is sent to the Foundry, a number of verifications have t
 2. **Timing Verification**
    1. STA - Static Timing Analysis - It ensures that all the setup and hold constraints are met.
 
-#### Introduction to OpenLane
+### Introduction to OpenLane
 **OpenLane** is an open source tool that enables the users to experience the RTL to GDS flow with open source PDKs, Open EDA tools and Open RTL.  
 StiVe is a fmily of SoC at OpenLane that uses all open source elements.
 OpenLane is tuned for Skywater 130nm Open Source PDK. It can be used to harden chips and macros. It supports an automated push-button flow and an interactive flow.
 It also supports design space exploration to find the best configuration for your design.
 
-##### OpenLane Detailed RTL2GDS Workflow
+#### OpenLane Detailed RTL2GDS Workflow
 The detailed RTL2GDS workflow in OpenLane is shown below. OpenLane uses a number of open source tools like Yosys for Synthesis, OpenSTA for timing, etc.  
 
 ![OpenLane Detailed RTL2GDS Flow](https://github.com/user-attachments/assets/6cdf572f-ee85-43a5-8af5-eb4d1cd7a99e)
@@ -215,6 +215,10 @@ In this workshop, we have taken a preventive approach to add a fake antenna diod
 **Magic and Netgen** are used for Physical verification.  
 Magic is used for DRC and Spice extraction from the Layout.
 Netgen and Magic are used for LVS verification.
+
+## Implementation
+### Intoduction to OpenLane Lab Environment
+
 
 ## Prepare Deisgn
 ![image](https://github.com/user-attachments/assets/6d505db9-dcd0-4ce5-b25c-2a7bff1a16d6)
