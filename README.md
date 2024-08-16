@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/41d9e56a-af9e-44b1-887d-11656fa78196)# Advanced Physical Design using OpenLANE and Sky130 PDK
+# Advanced Physical Design using OpenLANE and Sky130 PDK
 > This repository is developed as a part of Digital VLSI SoC Design and Planning Workshop conducted by VLSI System Design.  
 > The training is arraged by Ansys Software Pvt. Lmt.  
 > The training covers the RTL2GDSII Workflow.
@@ -265,33 +265,86 @@ The spice and cdl folders contain the spice and cdl netlists of the standard cel
 Now coming back to the OpenLane Working Directory, let us take a look into the OPenLane Directory that is paralell to the pdks directory.  
 ![OpenLane WD](https://github.com/user-attachments/assets/6e454f7f-b569-4bf2-b707-5342e4770588)
 
+The `designs` folder has multiple designs that can be run using openlane.  
+We will be designing _picorv32a_.  
+Under the src folder, we have the SDC file and the Verilog file.
+![picorv32a](https://github.com/user-attachments/assets/46d8079d-33fb-49d8-a938-53d015808113)  
+
+SDC File:  
+![SDC](https://github.com/user-attachments/assets/6cd5d3fd-69ee-408c-b732-777f3dfb2f8b)
+
+Verilog File:  
+![Verilog](https://github.com/user-attachments/assets/4e2dbb49-af6e-4a7a-a03e-a3e3a476f7ca)
+
+The config.tcl contains the settings that override any other settings done in the openlane env.  
+![config.tcl](https://github.com/user-attachments/assets/cdb073fd-23ba-4da4-b83c-b1d715279af8)
+
+There is another design specific configuration file - _sky130A_sky130_fd_sc_hd_config.tcl_ that occupies the highest priority.  
+![sky130A_sky130_fd_sc_hd_config.tcl](https://github.com/user-attachments/assets/c6107189-c796-474f-afa3-a439662acff4)
+
+Order of Priority: `OpenLane settings < config.tcl < sky130A_sky130_fd_sc_hd_config.tcl`  
+
 The OpenLane Workflow is run within the docker environment. Use the command `docker` wihtin the _openlane_ directory to load the required environment for running the OpenLane flow.
 Once you execute the `docker` command, it provides a bash prompt. All the commands for the OpenLane flow are executed in this shell.  
 Now, invoke the OpenLane tool using the flow.tcl script in interactive mode.  
 
-Commands to invoke OpenLane  
-`docker  
+Commands to invoke OpenLane:  
+```
+docker  
 ./flow.tcl -interactive  
-package reqire openlane 0.9`  
+package reqire openlane 0.9
+```
+![Invoke OpenLane](https://github.com/user-attachments/assets/0e4e9185-2a25-4a65-b550-50f7df3ce8f3)
 
-![image](https://github.com/user-attachments/assets/0e4e9185-2a25-4a65-b550-50f7df3ce8f3)
+### Prepare Deisgn
+**Prepare Design** is the first step in running the OpenLane flow. In order to run the various steps of the flow a directory from where are relavant files can be fetched must be created. Prepare Design step does exactly the same.
+It merges the standard cell lef and the technology lef files.  
+Command to run prepare design:  
+`prep -design picorv32a`
 
-## Prepare Deisgn
-![image](https://github.com/user-attachments/assets/6d505db9-dcd0-4ce5-b25c-2a7bff1a16d6)
-![image](https://github.com/user-attachments/assets/0a731e08-176a-451c-9a89-07ffdf1991ea)
+![prep design execution](https://github.com/user-attachments/assets/a779f9a1-0605-4c8e-930b-a6ac8a215b6b)
 
-## Synthesis
-![image](https://github.com/user-attachments/assets/ff584423-6d6d-4850-aa9f-4b7dc4bb602d)
+After the Prepare Design step, we can see that a runs directory has been created with a directory with today's date.  
+This contains the files generated from the prep design step.
+![prep design results](https://github.com/user-attachments/assets/5e7f4f55-1a85-4983-93cb-f4dcb06c74a7)
 
-## Calculating FF Percentage
-![image](https://github.com/user-attachments/assets/9b5fcc15-b3a4-42fb-b65d-6ff0c383fc6a)
-![image](https://github.com/user-attachments/assets/60736d99-98cb-444b-a84e-a12b34c70518)
+Within the tmp folder, you will have the merged.lef file.
+![tmp folder](https://github.com/user-attachments/assets/ffec5caf-b0fc-447c-b53c-3669531c07c5)
 
-Percentage of DFF = (1613/14876)*100 = 10.84%
+Merged Lef File:
+![Merged LEF](https://github.com/user-attachments/assets/a4bee505-3fb9-4834-a7f6-10ad29cb58f3)
 
-## Floor Planning
+The remaining folders results and reports have directories for each stage - synthesis, floorplan etc that are currently empty as we are yet to run those steps.
+The logs folder contains the log file for each step.  
+
+The config.tcl present in the run directory contains all the settings that have been taken while running the command.  
+![Config.tcl](https://github.com/user-attachments/assets/737a722b-4db2-463e-ac0a-908a5fd91145)
+
+The cmds.log contains all the commands/files that are internally getting executed when each step is run in the flow.
+![cmds.log](https://github.com/user-attachments/assets/ed11666f-4fdd-4c37-9984-35608a1453a1)
+
+### Synthesis
+Synthesis is the first step in RTL2GDS Flow. Synthesis is run using the Yosys tool.
+The command to run Synthesis is:  
+`run_synthesis`
+
+![Synthesis](https://github.com/user-attachments/assets/0148003f-1a80-4f17-b7c0-dc830d0aa85b)
+
+You can find the Verilog netlist generated after synthesis under `results/synthesis`.  
+![Synthesised Netlist](https://github.com/user-attachments/assets/7a0683b7-4a5b-4d99-8577-3f07754c8acf)
+
+Timing Report from OpenSTA:
+![Timing Report](https://github.com/user-attachments/assets/bf22b391-3706-4afa-b642-e34e707e7b79)
+
+#### Calculating Flop Percentage in the Design
+The Yosys Stats report has the required data for calculating the Flop ratio of the design.  
+![Flop Ratio](https://github.com/user-attachments/assets/f2f62e94-bcd9-4605-b334-c56dfb5033b0)
+
+> **Percentage of DFF = (1613/14876) x 100 = 10.84%**
+
+### Floor Planning
 ![image](https://github.com/user-attachments/assets/a1c6a445-42ba-41e0-a852-f8a7cdd189ee)
 ![image](https://github.com/user-attachments/assets/13604c4f-a940-4ab3-94f3-05eb01755389)
 
-## DEF Floorplan in Magic
+### DEF Floorplan in Magic
 ![image](https://github.com/user-attachments/assets/43294628-f7ee-462f-982e-6d3b1c9c1963)
