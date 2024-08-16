@@ -1,4 +1,4 @@
-# Advanced Physical Design using OpenLANE and Sky130 PDK
+![image](https://github.com/user-attachments/assets/41d9e56a-af9e-44b1-887d-11656fa78196)# Advanced Physical Design using OpenLANE and Sky130 PDK
 > This repository is developed as a part of Digital VLSI SoC Design and Planning Workshop conducted by VLSI System Design.  
 > The training is arraged by Ansys Software Pvt. Lmt.  
 > The training covers the RTL2GDSII Workflow.
@@ -218,7 +218,63 @@ Netgen and Magic are used for LVS verification.
 
 ## Implementation
 ### Intoduction to OpenLane Lab Environment
+Please install Oracle VM Virtual Box Manager and launch a new Virtual Machine using the downloaded Openlane VDI.
+Once you are inside the VM, open a Terminal.  
+The Openlane working directory is located at `/home/vsduser/Desktop/work/tools/openlane_working_dir/`  
+![OpenLane Working Directory](https://github.com/user-attachments/assets/9b6aa392-ffdf-442f-ac01-2e2d60fa9143)
 
+### Getting Familiar with OpenLane Directory structure and Input Design Data
+The OpenLane Working Directory has the `pdks` folder. We use the **sky130A** PDK in this workshop.
+
+| Directory | Contents |
+|-----------|----------|
+| **skywater-pdk** | This has the input files like timing files, lib files, lef files, etc. |
+| **open_pdks** | This has the scripts that convert the Foundary PDKs to be compatible with the Open Source Tools like Magic, Netgen |
+| **sky130A** | This is the final Open SOurce tools compatiable PDK that we will be using. |
+
+![PDKs](https://github.com/user-attachments/assets/e1f7146c-8e7e-49ef-a0d4-59e11174f264)
+
+Going into the `sky130A` directory, we find the `lib.ref` and `lib.tech` folders.  
+libs.ref has the PDK files specific to the various processes.  
+libs.tech has the PDK files specific to the different tools.
+
+![PDK structure](https://github.com/user-attachments/assets/5228348f-5247-4850-9537-6704d413cd55)
+
+We will be using the process - **sky130_fd_sc_hd** in our workflow.  
+**sky130** refers to the skywater 130nm technology.  
+**fd** refers to the name of the foundry.  
+**sc** means that it is a standard cell library.  
+**hd** refers to the variant of the PDK.  
+
+Inside the sky130_fx_sc_hd folder, there are the design data folders such as verilog, lef, tech, libs, etc.
+![design data](https://github.com/user-attachments/assets/262a0799-ee4e-468c-8e4d-4d671c1521a4)
+
+Within the libs folder, the timing libs for PVT corners are present.  
+Process - Slow(ss), Fast(ff), Typical(tt)  
+Temperature - -40, 25, 100 degrees  
+Voltage - 1.4V, 1.8V, etc.  
+
+![Libs](https://github.com/user-attachments/assets/933fe69e-f2f9-4fd6-b8b3-379e2a6ef4ee)
+
+Within the lef folder, the standard cell lef file is present.  
+Within the techlef folder, the technology lef file is present. This defines the width and spacing of the metals.  
+The Verirog folder contains the RTL Netlist of the design.  
+The spice and cdl folders contain the spice and cdl netlists of the standard cells.  
+![Input folders](https://github.com/user-attachments/assets/0cacbb5f-7640-497e-a103-cba2d9f54f05)
+
+Now coming back to the OpenLane Working Directory, let us take a look into the OPenLane Directory that is paralell to the pdks directory.  
+![OpenLane WD](https://github.com/user-attachments/assets/6e454f7f-b569-4bf2-b707-5342e4770588)
+
+The OpenLane Workflow is run within the docker environment. Use the command `docker` wihtin the _openlane_ directory to load the required environment for running the OpenLane flow.
+Once you execute the `docker` command, it provides a bash prompt. All the commands for the OpenLane flow are executed in this shell.  
+Now, invoke the OpenLane tool using the flow.tcl script in interactive mode.  
+
+Commands to invoke OpenLane  
+`docker  
+./flow.tcl -interactive  
+package reqire openlane 0.9`  
+
+![image](https://github.com/user-attachments/assets/0e4e9185-2a25-4a65-b550-50f7df3ce8f3)
 
 ## Prepare Deisgn
 ![image](https://github.com/user-attachments/assets/6d505db9-dcd0-4ce5-b25c-2a7bff1a16d6)
