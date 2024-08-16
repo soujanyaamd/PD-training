@@ -343,8 +343,170 @@ The Yosys Stats report has the required data for calculating the Flop ratio of t
 > **Percentage of DFF = (1613/14876) x 100 = 10.84%**
 
 ### Floor Planning
-![image](https://github.com/user-attachments/assets/a1c6a445-42ba-41e0-a852-f8a7cdd189ee)
-![image](https://github.com/user-attachments/assets/13604c4f-a940-4ab3-94f3-05eb01755389)
+#### Define Width and Height of Core and Die
+The Area of a Die is dependent on the Standard cells used in its Netlist.  
+Consider the simple netlist shown below:
+![Eg. Circuit](https://github.com/user-attachments/assets/0909a1f4-d195-4a44-82a7-a52aa8560b5a)
 
-### DEF Floorplan in Magic
-![image](https://github.com/user-attachments/assets/43294628-f7ee-462f-982e-6d3b1c9c1963)
+Converting all the cells into physical dimensions of a standard cell:
+![Ckt elements to std cells](https://github.com/user-attachments/assets/381cf9ac-1b5c-4668-9ae4-0ce368978f40)
+
+Defining the area of the Standard cells and Flipflops as 1 sq. unit:
+![Cell area](https://github.com/user-attachments/assets/e504367c-cd14-4f83-81ea-fff0807aa78b)
+
+Therefore rough/minimum area required by the die is 4 sq. units.
+![Die Area](https://github.com/user-attachments/assets/817a51c4-807a-45bf-a7f0-bf0bb6a4fc90)
+
+Core is the area within a die where the fundamental logic is placed. A die encapsulates the core.
+A Die is repeated multiple times on a Silicon Wafer to increse the throughput.
+![Core and Die on Si Wafer](https://github.com/user-attachments/assets/b1b20830-2404-40b8-a868-98b1c38c719f)
+
+**Core Utilization Percentage **is defined as the ratio of the area occupied by the netlist to the area of the core.
+![Core utilization factor](https://github.com/user-attachments/assets/a6bd8499-6420-4d98-8c1c-eab906a7e9c8)
+
+Placing the Logic circuit within the core as shown gives 100% Core Utilization, i.e. the utilization factor is 1.
+![eg.1](https://github.com/user-attachments/assets/a5a85d8a-d070-4a3a-bc27-51f940a6885b)
+
+If the core is entirely utilized by the netlist, there is no provision to add the routes or some extra cells if required. Therefore, practically only 50-60% of the core is utilized.  
+
+**Aspect Ratio** is defined as the height of the core divided by the width of the core.  
+![Aspect ratio](https://github.com/user-attachments/assets/d8d022a0-1630-4012-b332-64a3037a4f93)
+
+In this example, the Core Utilization factor is 0.5 and the Aspect ratio is 0.5.
+![e.g.2](https://github.com/user-attachments/assets/9020b248-cf2b-4b4d-988b-ef5d8db3b021)
+
+#### Define the Location of Pre-placed Cells
+If some part of the circuit or the combinational logic like a Clock Divider or a Complex Mux is occuring in multiple parts of the netlist, then we need not implement the logic everytime.
+These blocks can be implemented once and repeatedly used in any part of the design.  
+Consider the following combinational circuit.
+![Comb circuit](https://github.com/user-attachments/assets/62ad6318-d2bb-4e24-bb8d-f05ae3f47648)
+
+Now, let us divide it into 2 parts and put it inot 2 blocks.  
+![cut1 and cut2](https://github.com/user-attachments/assets/9a362e5e-ecf5-45d6-b4ee-b7d929934342)
+
+THese 2 blocks will be implemented seperately. Let us extend the IO pins of the blocks and black box them  
+![Block1 and Block2](https://github.com/user-attachments/assets/a4a67c38-ff0e-4c74-9e23-6327a0bb5776)
+
+These 2 blocks can now be implemented by different users and the top level designer need not implement it. They can simply connect the 2 modules wherever necessary and realise the function.
+![Blocks IPs](https://github.com/user-attachments/assets/8e57ec7d-7b8c-40cb-b094-99e349ea76a0)
+
+There are other IPs readily available in the market that can be used in our designs like memories, Clock Dividers, Clock Gating cells, Mux, etc.
+They can be instatiated mulitple times in a netlist.  
+
+Floor Planning means the placement of these Modules in the chip. The remaining logic is placed during PnR by the PnR tools.
+The IPs are not touched during PnR, Hence these are called as Pre-placed Cells.  
+The location of the pre-placed cells has to be planned very well so that they are close to the required I/O ports. Once placed, their locations cannot be altered in the entire design cycle.  
+
+![Pre-placed cells](https://github.com/user-attachments/assets/ff8448bf-4487-4943-96c2-5ccfe7e69503)
+
+#### Placing de-coupling capacitors
+In physical connections within a die, there is bound to be voltage drop due to the resistance and inductance of the connecting metal segments. Due to this the combinational circuit will not receive the actual supply voltage. If this voltage is not sufficient to charge the capacitor in the combinational logic to 1 or discharge it to 0 safely within the Noise Margins, then the output of the combinational logic will be in unstable state.  
+![Practical combinational logic](https://github.com/user-attachments/assets/d4259b42-2987-47a7-b355-2ff55728ef12)
+![Logic levels](https://github.com/user-attachments/assets/5dca416b-bebc-4b2f-9b3a-eebed60ab47e)
+![Noise Margin](https://github.com/user-attachments/assets/b9a00c8b-0161-4ead-86e3-3aa953a82fd6)
+
+In order to solve this problem, de-coupling capacitors can be added in paralell to the combinational circuit.  
+Whenever there is a switching in the combinational circuit, it draws current from the de-coupling capacitor.  
+The RL network is used to replenish the charge into Cd (Coupling Capacitor).
+Since Cd is placed close to the Combinational block, there will be hardly any voltage drop from Cd to combinational logic.  
+![De-coupling caps](https://github.com/user-attachments/assets/eb2e8eb2-9ece-4c89-bdf0-469c2870be3b)
+
+In the chip, all the pre-placed blocks should be surrounded with decaps.  
+![De-caps](https://github.com/user-attachments/assets/2a221c89-3c8a-474e-9272-c4791ac96978)
+
+#### Power Planning
+Consider a scenario where the an IP1 is driving IP2. The logic signal from IP1 to IP2 should hold the shape in order to be interpreted properly at the input of IP2.
+If we have a singal source of Power supply, it will be very hard to drive this signal line. And it is not practical to put de-caps all over the design.  
+
+![IP1-IP2](https://github.com/user-attachments/assets/b5b7d424-e8aa-41a5-a81f-d6f2752420be)
+
+Assume that the signal line is a 16 bit bus. If this 16-bit bus is connected to an inverter, then all the bits have to toggle at the same time.
+![inverter 16 bit bus](https://github.com/user-attachments/assets/18fed88e-bddf-4fe6-b912-677a1a96328e)
+
+
+If all the bits on a 16-bit bus get discharged at the same time, it can lead to ground bounce as there is a signgle line to discharge.  
+![gnd bounce](https://github.com/user-attachments/assets/50d54a51-4b87-4610-aa75-772a5b164be8)
+
+Similarly, when all the bits are charged to 1, it leads to voltage drop as there is a single supply.
+![vtg drop](https://github.com/user-attachments/assets/a132861d-494b-4746-88fe-f160a081d452)
+
+The solution to this problem is to create multiple power supplies on the chip. We will have Vdd and Vss lines as a grid to supply power to the chip.
+Each cell will tap the power supply from its nearest Vdd and Vss rails.
+![power grid](https://github.com/user-attachments/assets/e0381fd9-6195-4e09-8496-9bfa4b2cb196)
+
+This is how the power grid planned chip looks like.
+![Power Grid](https://github.com/user-attachments/assets/e5642ef7-072b-475a-932a-36e6b49f0464)
+
+#### Pin Placement
+Consider the below circuit that needs to be implemented. It has the 2 combinational logic blocks and 2 pre-placed cells.
+The circuit has 6 input ports and 5 output ports.  
+![e.g.1](https://github.com/user-attachments/assets/f80beed8-bae2-4a56-bc0a-4db2250b0db1)
+
+After tapping the common ports:
+![after tapping](https://github.com/user-attachments/assets/baf67f84-a815-4d2e-89ec-9f00860876dd)
+
+The common practice in pin placement is to have input ports at the left side of the chip and output ports at the right side of the chip.
+We will place the I/O pads in the area between the core and the die. Here the order of the pins may not be chronological. The pins will be placed near to the blocks with which they are directly connected to.
+![Pin placement](https://github.com/user-attachments/assets/56cf8228-83ab-402f-bfa4-122a46a8c389)
+
+The clock ports are bigger in size compared to the signal ports. This is because the clocks drive the cells continuosly and so they require the least resistance paths.  
+
+Once the Pin placement is done, some bloackages should be defined over the region so that the PnR tools do not place any logical cells over the region. This is known as **Logical Cell Placement Blockage**.
+![Logical Cell Placement Blockage](https://github.com/user-attachments/assets/6570c5cf-d70c-482b-974f-3a03084bc2f6)
+
+#### Running Floorplan in OpenLane
+The command to execute floorplan is:  
+`run_floorplan`
+
+There are some switches to control the floorplan. The Readme file in the below configuration folder contains the description of the switches that can be used in every step of the flow.
+![FP Switches](https://github.com/user-attachments/assets/935dc06c-65f3-4072-8cd6-5d7ad35b70c9)
+
+These switches are set in the floorplan.tcl. These the default values in OpenLane.  
+![FP config](https://github.com/user-attachments/assets/ac7a618e-0101-4805-b0c7-820d4ae61314)
+
+Again as stated in synthesis stage, the order of priority is as follows - _design_name_.tcl > config.tcl > floorplan.tcl
+
+Floorplan is executed successfully.  
+![run_floorplan](https://github.com/user-attachments/assets/0e498961-c479-438c-932e-01b1528b0458)
+
+Let us review the logs and the results from the floorplan step.  
+The Die area and Core area are present in the Verilog2DEF log generated from OpenROAD.
+![OpenROAD Log](https://github.com/user-attachments/assets/ae689ed4-09cc-46bd-b502-046c7a608d63)
+
+In the floorplan.tcl, the FP_CORE_UTIL is set as 50.  
+![fp.tcl](https://github.com/user-attachments/assets/a2ffd2d6-2bc7-4f1d-8e17-04f42d396370)
+
+But in the design_config file, it is defined as 35.  
+![design config](https://github.com/user-attachments/assets/f3318434-ec3d-4231-bb6f-42652956b8a2)
+
+In the config file under the run directory, we can verify that the tool used FP_CORE_UTIL as 35 according to the order of precedence.
+![final config.tcl](https://github.com/user-attachments/assets/882c7b1d-e249-438c-b0d0-32b57093a152)
+
+##### Calculating Area of the Die
+The Area of the Die can be calculated from the DEF file.
+![DEF File](https://github.com/user-attachments/assets/ccc7f2f4-a73b-46cc-9613-1cb3b1a69eee)
+
+```
+1000 database units = 1 Micron  
+Width of the Die = (660685-0) = 660685 DB units = 660.685 microns  
+Heigth of the Die = (671405-0) = 671405 DB units = 671.405 microns   
+Area of the Die = 660.685 X 671.405 = 4,43,587.212425 sq. microns
+```
+
+##### Reviewing the DEF Floorplan in Magic
+Command to open the DEF File in Magic:
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/runs/17-03_12-06/results/floorplan/
+magic -T /home/vsduser/Desktop/work/tools/openlane_working_dir/pdks/sky130A/libs.tech/magic/sky130A.tech lef read ../../tmp/merged.lef def read picorv32a.floorplan.def &
+```
+
+![DEF FP in Magic](https://github.com/user-attachments/assets/0a33242e-8acc-43d7-b0ab-a61b559a553d)
+
+Viewing the Layer on which the horizontal pins are placed in the Floorplan. They are placed on Metal 3. This is one less than the FP_HMETAL defined in the config.tcl. (As expected)
+![H Pin placement](https://github.com/user-attachments/assets/c3495d1c-7009-4c98-a88e-972e114ab424)
+
+Similarly, the vertical pins are placed on the Metal 2.
+![V Pin Placement](https://github.com/user-attachments/assets/405ce1a0-1322-4d58-967b-6aa312a136d0)
+
+End Cap cells are placed along the boundary of the core. And Tap cells are placed to prevemt latch up of n-wells.  
+![End Cap cells and Tap cells](https://github.com/user-attachments/assets/d62dcd4e-68a4-47a3-8b34-30d75c485e9b)
