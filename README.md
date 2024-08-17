@@ -510,3 +510,144 @@ Similarly, the vertical pins are placed on the Metal 2.
 
 End Cap cells are placed along the boundary of the core. And Tap cells are placed to prevemt latch up of n-wells.  
 ![End Cap cells and Tap cells](https://github.com/user-attachments/assets/d62dcd4e-68a4-47a3-8b34-30d75c485e9b)
+
+The Standard cells are kep unplaced at the origin at this stage.
+
+### Placement
+#### Binding Netlist with Physical cells
+In this process, the gates of the netlist such as AND gates, OR Gates, Flipflops etc, are given a physical representation and dimension. All these Gates and their dimensions are present in the library.
+The library also has the timing information of the cells like gate delays, FF setup and hold time, etc.
+It will also have the **When Conditions** of a cell.  
+A library has different variants of a gate, for eg. it can have Buffers of 1x Area, 2x Area and 4x Area. These have the same functionality, but the 4X Buffer will have more drive strength and it will be faster.  
+The designer can pick up the required variant based on the timing constraints and area constraints of the design.
+Different Variants of cells in a library:  
+![Lib cells](https://github.com/user-attachments/assets/fa6200cb-6128-485d-9610-65e2bea4318a)
+
+#### Placement of Standard Cells
+The next step is to place the physical cells from the library onto the Floorplan.  
+In the Floorplan we have a well defined area of pre-placed cells or Macros and defined I/O ports.
+The Standard cells cannot be placed over the Macros.  
+Now based on the proximity required to the I/O ports, and the cells logical connectivity, we come up with a location for each of the cells in the netlist.
+The Standard cells can be abutted with each other to minimize the delay. If some parts of the logic have to operate at very high speed, then they are usually abutted to reduce the delay to the maximum extent.  
+We place the input flops as close as possible to the i/p ports and Output Flops as close as possible to the o/p Ports.  
+With this we come up with a rough placement of the Standard cells.  
+![Placed Cells](https://github.com/user-attachments/assets/63770605-c23b-4894-b859-3cefb97351d9)
+
+#### Optimize Placement
+In this stage, we estimate the wire length required to connect the logically connected netlist cells and also the capacitance. In order to maintain the signal integrity, we introduce repeaters. These are buffers that will take the original signal and re-condition them, replicate them and transmit it to the receiver.
+In our e.g., the distance between Din2 and Yellow FF1 is quite large. Based on the wire length and capacitance calculations, we observe that the slew is beyond the acceptable limit. Hence we need buffers on the path from Din2 to FF1.  
+![Insertion of Buffers](https://github.com/user-attachments/assets/2d10e00c-d3cd-4e3f-8b83-25e5addf2360)
+
+After all the 4 groups of Combinational Logic cells have been placed.
+![Placement](https://github.com/user-attachments/assets/7bfbb554-70ba-403c-9634-13d9f07d9a7b)
+
+At this stage, we have to do a timing analysis with ideal flops to make sure that the timing constraints are being met till this point.
+
+#### Running placement in OpenLane
+Let us do a Congestion Aware Placement in OpenLane.  
+The command to execute Placement is:  
+`run_placement`
+
+This takes place in 2 stages, Global Placement and Detailed Placement. The tool runs a lot of iterations to achieve an optimum placement.  
+main objective of Placement is to reduce the wire length.
+OpenLane uses a concept called HPWL (Half Parameter Wire Length) that will be minimized.  
+![After run_placement command](https://github.com/user-attachments/assets/22bf2020-d957-4ff3-aad6-dbd13754f98f)
+
+#### Reviewing the DEF after Placement in Magic
+Command to open the Placement DEF in Magic:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/runs/17-03_12-06/results/placement/
+magic -T /home/vsduser/Desktop/work/tools/openlane_working_dir/pdks/sky130A/libs.tech/magic/sky130A.tech lef read ../../tmp/merged.lef def read picorv32a.placement.def &
+```
+DEF after Standard Cells placement is completed:  
+![DEF with Standard cells](https://github.com/user-attachments/assets/c8e47d05-166b-4a54-be31-6b24a8d58b9b)
+
+Standard Cells placed within the Standard cell rows:  
+![STd cells](https://github.com/user-attachments/assets/39e6900e-a596-459c-a07e-12b6cfe7147f)
+
+### Cell Design and Library Characterization Flows
+#### Inputs for Cell Design Flow
+A collection of cells is known as library. The cells have to be designed, charcterized and modelled in such a way that the tools understand the cells. Hence the characterization and modelling of the Library is very important.  
+A Libaray has cells with different functionality, different sizes (drive strengths) and different threshold voltage(Vt). The threshold voltage decides how fast a cell can operate or switch.
+![Cells of a Library](https://github.com/user-attachments/assets/f20e5236-31e1-456e-a5bb-51121c77b8e6)
+
+Now, let us consider an inverter from this library. This inverter has to undergo a cell design flow to be represented in form of its physical shape, timing characteristics, drive strength, etc, to be used by the tools.  
+
+The input for the cell design flow comes from the Foundry. It consists of the Process Design Kit(PDK), DRC and LVS rules, Spice models, library and user-defined specifications.  
+Example of DRC Rules. These rules have to be followed in order that the Foundry is able to manufacture your chip.
+![DRC rules](https://github.com/user-attachments/assets/e67e5d36-1b20-452f-9556-d84c7a37c3be)
+
+The Spice models for the Pmos and Nmos come from the Foundry.
+![Spice Models](https://github.com/user-attachments/assets/3d02faad-ebb1-4b78-9964-3eee7ce6ff0f)
+
+Some of the user-defined specifications include the cell height and drive strength. The cell height is determined by the distance between the Power rail and ground rail. The designer specifies the drive strengths required by him for the design and provides it to the library developer. Drive strength is decided by the width of the cell.  
+Another user-defined specification is Supply voltage. The library designer has to take care of the noise margins based on this Supply Voltage.  
+Pin locations, drawn gate length and metal layers are also user-defined.
+
+#### Design steps in Cell design Flow
+It has three steps.  
+1. **Circuit Design**: It includes implementing the function with the help of Nmos and Pmos transistors and model the Pmos and Nmos transistors. to meet the requirements such as W/L ratios. **CDL (Circuit Description Language)** is the output of Circuit design Step.
+2. **Layout Design**: Once we know the W/L of the Nmos and Pmos, we have to implement it on a layout. To this we construct an Euler's Graph and Stick Diagram for Pmos network adn Nmos network. This is then converted to the layout based on actual DRC rules and user-defined specifications such as pin locations, cell height, etc. The output of this stage is standard cell LEFs, and GDSII. And also the parasitic extracted spice netlist (.cir)
+3. **Characterization**: In this step, we extract the parasitics from the layout and characterize the cell in terms of timing. The Output of characterization is timing, noise and power libs and the functionality of the cell.
+
+Circuit Design:  
+![Circuit Design](https://github.com/user-attachments/assets/244c3bf9-7b72-4ad1-8df9-09e5115065c9)
+
+Stick Diagram for the above circuit:  
+![Stick Diagram](https://github.com/user-attachments/assets/fa73d0ab-32b4-4efe-847f-cbfbadb7d89a)
+
+Layout of the Circuit:  
+![Hand drawn layout](https://github.com/user-attachments/assets/b301d84b-21fe-48a3-86ac-3579f5f3eb90)
+
+Layout in Magic:  
+![Layout - Magic](https://github.com/user-attachments/assets/7a9f15b1-4319-4cea-b477-2bd9b62e4a30)
+
+#### Characterization Flow in detail
+Consider a Buffer. It is implemented as 2 inverters. At this point, we have the circuit description of a buffer. We have the spice extracted netlist, the layout, the spice models of the Pmos and Nmos.  
+Steps in characterization flow:
+1. Read the Nmos and Pmos model files.
+2. Read the extracted spice netlist.
+3. Define/recognize the behaviour of the buffer.
+4. Read the subcircuit of the inverter that has been instatiated in the buffer.
+5. Attach the mecessary power sources to the inverters.
+6. Apply the stimulus to the buffer.
+7. Provide the output capacitor.
+8. Provide the necessary analysis command in the spice netlist.
+
+All this information is fed into a software called GUNA. It generates the timing, noise and power libs and the function model.
+
+Realization of buffer with 2 inverters:
+![buffer](https://github.com/user-attachments/assets/eb4d7709-fe59-40b1-8dda-02e8ec6bf405)
+
+### General Timing Characterization Parameters
+Consider the previously used realization of buffer with 2 inverters.  
+There are certain timing threshold definitions for a waveform.  
+**Timing threshold definitions:**
+1. Slew_low_rise_thr - It the lower reference point taken for measuring the slew on a rising w/f. It is typically 20% of the power supply.
+2. Slew_high_rise_thr - It is the higer reference point for measuring the slew on a rising w/f. Again, it is typically 80% of the power supply.
+   Slew is the time taken by the signal to rise from slew_low_rise_thr to slew_high_rise_thr.
+3. Slew_low_fall_thr and Slew_high_fall_thr - These apply for a falling w/f. They are similar to 1 and 2.
+4. in_rise_thr - This is the refernece point on the rising input signal to calculate the delay. It is typically 50% point.
+5. out_rise_thr - This is the reference point on the rising output signal to calculate delay. Again typically 50%.
+   Rise Delay between the i/p and o/p of the cell is calculated for a buffer as time difference between out_rise_thr and in_rise_thr.
+6. Similarly, we have in_fall_thr and out_fall_thr for falling waveforms.
+
+**Propagation Delay**  
+Delay is defined as the time difference between the output_threshold and input_threshold.  
+Consider in this below e.g. 50% as the threshold:  
+![Prop Delay 1](https://github.com/user-attachments/assets/cf47ff59-eb0b-4185-8260-509558698a59)
+The delay in this case is 23ps.  
+
+Consider another example where the threshold is above 50% as shown. This is leadng to a negative delay of -42ps. That means the output is arrived before the input. Therefore choosing the rigth threshold is very iportant.
+![Prop Delay 2](https://github.com/user-attachments/assets/fd720150-dccc-4f14-bdc3-81c8521a56a7)
+
+Another cause of negative delay can be very high input slew. This may happen when the inverters are placed very far apart. The input of the 2nd inverter might have a large slew.  
+![Prop delay 3](https://github.com/user-attachments/assets/f4966c4f-53e2-4fab-acad-cc2f53d8bf4e)
+
+Zoomed in:  
+![Prop delay 3 zoom](https://github.com/user-attachments/assets/f8f12d9d-8e1e-432b-9fcf-37af8cac9894)
+
+**Transition Time**
+Transition time = SLew_high_thr - Slew_low_thr
+![Slew thrs](https://github.com/user-attachments/assets/c2d20bc5-342c-49fa-aa9d-89be6b3da663)
+![SLew calc](https://github.com/user-attachments/assets/2d15ccc4-6bf4-49ec-b2a7-24c669b155e4)
