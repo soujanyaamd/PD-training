@@ -513,6 +513,29 @@ End Cap cells are placed along the boundary of the core. And Tap cells are place
 
 The Standard cells are kep unplaced at the origin at this stage.
 
+#### Re-running floorplan by making changes on the fly
+OpenLane supports making changes to the variables on the fly and re-running the steps.  
+For e.g., we can change the value of the FP_IO_MODE and re-run the floorplan.
+In the current floorplan, the FP_IO_MODE was set to 1. Therefore the IO pins were arranged in a equidistant fashion and on all 4 edges of the chip.
+Snapshot of current floorplan with equidistant IO pins.  
+![FP mode 1](https://github.com/user-attachments/assets/b48bc371-2c4c-49ed-9c0b-58b2305b13bb)
+
+Snapshot of current floorplan showing IO pins on all 4 sides.  
+![FP Mode 1 img 2](https://github.com/user-attachments/assets/1e58c120-888b-46ac-af5a-bcfbfa64788d)
+
+In the next run, we will chage its value to 0 and see the impact on the floorplan.  
+Commands to be entered in the Openlane window:  
+```
+set ::env(FP_IO_MODE) "0"
+run_floorplan
+```
+
+Running Floorplan again with modified FP_IO_MODE setting:  
+![settings](https://github.com/user-attachments/assets/f2e08e47-30d5-4542-8020-6ee9055e9f2a)
+
+Floorplan with FP_IO_MODE 0. The IO pins are not equidistant and are not placed on all 4 sides.  
+![FP IO MODE 0](https://github.com/user-attachments/assets/5da93acd-dcb8-40b1-9af8-cf7a900241a7)
+
 ### Placement
 #### Binding Netlist with Physical cells
 In this process, the gates of the netlist such as AND gates, OR Gates, Flipflops etc, are given a physical representation and dimension. All these Gates and their dimensions are present in the library.
@@ -563,7 +586,10 @@ DEF after Standard Cells placement is completed:
 ![DEF with Standard cells](https://github.com/user-attachments/assets/c8e47d05-166b-4a54-be31-6b24a8d58b9b)
 
 Standard Cells placed within the Standard cell rows:  
-![STd cells](https://github.com/user-attachments/assets/39e6900e-a596-459c-a07e-12b6cfe7147f)
+![Std cells](https://github.com/user-attachments/assets/39e6900e-a596-459c-a07e-12b6cfe7147f)
+
+> [!NOTE]
+> In Openlane flow, the PDN is not implemented during the Floorplan, it is done after Placement, CTS and Routing.
 
 ### Cell Design and Library Characterization Flows
 #### Inputs for Cell Design Flow
@@ -651,3 +677,421 @@ Zoomed in:
 Transition time = SLew_high_thr - Slew_low_thr
 ![Slew thrs](https://github.com/user-attachments/assets/c2d20bc5-342c-49fa-aa9d-89be6b3da663)
 ![SLew calc](https://github.com/user-attachments/assets/2d15ccc4-6bf4-49ec-b2a7-24c669b155e4)
+
+### Design of Library Cell using Magic Layout and ngspice Characterization
+#### Spice Deck Creation for CMOS inverter
+A Spice Deck is nothing but a netlist that has the Nmos and Pmos connectivity information, inputs, output tap points, etc.  
+Consider the inverter circuit shown below:  
+![Inverter](https://github.com/user-attachments/assets/fd29b406-c84f-4007-97e0-660431d514cd)
+
+Observe that the substrate pin is also shown here for the NMOS and PMOS. The substrate plays a potential role is deciding the threshold of the Mos.  
+
+Next, we have to define the W/L values of the PMOS and NMOS. Let us take same size PMOS and NMOS. 
+Next, we have to come up with a value of Load Cap which is actually based on the circuit connected to the output of the inverter. Let us assume it to be 10fF.  
+![Mos sizing](https://github.com/user-attachments/assets/d49d06b4-878b-48ce-9a40-f2bdc4e1f231)
+
+We then define the Supply Volatges. Here, we set it to 2.5V.  
+![Supply voltages](https://github.com/user-attachments/assets/7a6de45c-19d7-48ac-b58f-80bf2fad03fa)
+
+The next step is to identify the nodes. Nodes are 2 points between which there is a component.  
+![Nodes](https://github.com/user-attachments/assets/de742c13-038b-49ac-9e5f-06a37b8954a9)
+
+Let us give names to identify these nodes to be used while writing the Spice Deck.  
+![Node Names](https://github.com/user-attachments/assets/7925f871-83fa-4529-801f-4c018b599258)
+
+Let us start writing the Spice Deck for the Inverter now.
+Lines starting with `*` are comments.
+First we define all the components of the circuit - M1 (pmos), M2 (nmos), Cload, Vdd and Vin.
+Mosfet connections are defined in the order Drain (connected to out node), Gate (in), Source (vdd), Substrate (vdd).
+Next, the commands to run the simulation are to be given.  
+In order get the Voltage Transfer Characteristics of the Inverter, we have to do a DC sweep of the input Voltage Vin and measure the O/p Voltage at out.
+Therefore, we sweep the Vin from 0 to 2.5 in steps of 50mV.  
+The last step is to include the TSMC model file which has the nmos and pmos models description.  
+![Spice Deck](https://github.com/user-attachments/assets/99b61c06-fdf6-42e8-bf50-79c37e0eb387)
+
+VTC of an inverter with equal sizing of PMOS and NMOS after Spice simulation.  
+![DTC equal size](https://github.com/user-attachments/assets/bce5ea28-68fa-4eb4-9759-340e461ff4ad)
+
+Now, let us increase the Width of the PMOS to 0.9375u. Now you can see that the DTC curve is centered with respect to the range of the input voltage.  
+![VTC with unequal char](https://github.com/user-attachments/assets/c3a919b4-387d-4146-874b-e8bbe6093d9a)
+
+Let us evaluate the static behaviour of the inverter. The CMOS inverter is a robust device.
+1. **Switching Threshold(Vm)** - It is the point at which Vin=Vout.  
+In case 1 (left) the Vm is around 0.98V and in Case 2 (right) the Vm is around 1.2V.  
+![Vm](https://github.com/user-attachments/assets/eb15c71c-729c-47c7-9e35-fb69f8b07ab6)
+Around the Switching threshold, both the PMOS and NMOS will be in Saturation region and turned on.  
+![Saturation](https://github.com/user-attachments/assets/1fb3a753-a072-4d45-ac88-ee9340965a06)
+
+Let us now do a transient simulation of an inverter.  
+Below is the spice deck. Here, we have given input as a Pulse with 10ps rise time and fall time.  
+![Transient simulation](https://github.com/user-attachments/assets/b2f37640-57ea-4bfa-b59e-50adaf86f22d)
+
+In order to calculate the delay, we have to take the time at which the output crosses 1.25V and the time at which i/p crosses 1.25V and subtract them.  
+![Calculation of Rise Delay and Fall Delay](https://github.com/user-attachments/assets/6016a147-28a9-4823-a0fe-dd3ab1bca8ea)
+
+Rise Delay = 148ps; Fall delay = 71ps  
+![Rise delay , fall delay](https://github.com/user-attachments/assets/d5cdcbd0-9649-40d0-8b5d-19721c7bfcfc)
+
+#### Clone Custom Inverter Standard Cell Git Repository
+Commands to clone the Custom inverter from Git Repo.
+```
+cd Desktop/work/tools/openlane_working_dir/openlane
+git clone https://github.com/nickson-jose/vsdstdcelldesign.git
+```
+Snapshot of Git Clone command:  
+![git clone](https://github.com/user-attachments/assets/86244f0f-1bc3-4852-af20-a63e510a4a6d)
+
+In order to view the mag file in Magic, we copy the Tech file and then use the below command to open it.  
+```
+cd vsdstdcelldesign
+cp ../../pdks/sky130A/libs.tech/magic/sky130A.tech .
+ls -lrt
+magic -T sky130A.tech sky130_inv.mag &
+```
+![magic file command](https://github.com/user-attachments/assets/2a9bb09d-e56a-4f4a-bc84-52d89582331b)
+
+Inverter Layout in Magic:  
+![Inverter Layout in Magic](https://github.com/user-attachments/assets/c31110ba-750b-46dc-98bb-491d4349076a)
+
+#### Inception of Substrate and CMOS Fabrication Process - 16 Mask CMOS Process
+##### Creating Active Regions
+Steps:
+1. Selecting a Substrate - the most commonly used is the P-type Silicon Substrate. It has high resistivity (5-50Ohms). It has a doping level of 10^15/cubic cm (which should be less than the doping level of the well).
+   ![P-substrate](https://github.com/user-attachments/assets/237459bb-be07-4d09-b851-99a61cac7274)
+2. Create Active regions of transistors - these are where PMOS and NMOS transistors are created.
+   The substarte is first deposited with a highly resistive layer of Silicon Oxide. Then with a layer of Silicon Nitride. This is covered by 1um of Photoresist.
+   Then the location where the wells have to be formed are identified and masked are placed over the photoresist. Masks protects the layers beneth it from photo lithograhy process (exposed to UV light)
+   Regions that are exposed to UV light, undergo chemical reactions and the Photoresist layer is washed away.
+   ![photolithogrhy](https://github.com/user-attachments/assets/3e362dc7-9efb-4d44-8517-46891695abb0)
+
+   Photoresist acts as a protective material for layers under it. After the Mask is removed, Silicon Nitride are removed (etched off) from the unmasked regions.
+   ![Si Nitride etching](https://github.com/user-attachments/assets/a3c870d3-156d-4a60-9a0b-97131e6b1b0f)
+
+   In the next stage, the photo resist is itself removed because the Silicon Nitride will itself act as a good protection to grow the oxide in other regions.
+   ![Photoresist removed](https://github.com/user-attachments/assets/60a378f8-198f-452e-8060-b62da7b40c8d)
+
+   Next it is placed in an Oxidation Furnace which helps the growth of oxide wells. These wells are isolated.
+   ![LOCOS](https://github.com/user-attachments/assets/f655248d-c3c3-451b-91fa-eeb52cf6ab3e)
+
+   Then the SiN3 is stripped using phosphoric acid.
+   ![sin3 stripping](https://github.com/user-attachments/assets/0e6af7c2-a3ad-4c3f-97a3-a756a6900c3d)
+
+##### Formation of N-well and P-well
+N-well is used for Pmos formation and P-well is used for Nmos formation.  
+P-well formation - Boron is a p-type material and it is used for creating the P-well using ion implantation method. A Mask2 is used for covering the region where N well is to be created.  
+![pwell](https://github.com/user-attachments/assets/6166a9a7-ed5e-4320-bbb4-2e17ed06abd8)
+
+N-well formation - Phosphorous is a p-type material and is used for formation of N-well. This uses Mask3.  
+![nwell](https://github.com/user-attachments/assets/cc341d7c-b37a-4053-899a-f4735d08361a)
+
+We have to now diffuse the wells to create deeper wells to allow enough space for the pmos and nmos to be fabricated. The process is known as Twin tub process and is done ina high temperature furnace.
+![diffusion](https://github.com/user-attachments/assets/f3933247-5692-4c13-b399-25d162580553)
+
+##### Formation of Gate Terminal of the Transistor
+The Doping concentration (NA) and the oxide capacitance (Cox) are 2 important parameters for Gate formation as they control the threhold Voltage (Vt).
+![Vt](https://github.com/user-attachments/assets/bb8ae046-1035-4784-9d03-fdf0e6498e4f)
+
+A low energy Boron beam is used for formation of the Gate in the P-well. As a result required Doping Concentraion is maintained. Uses Mask4.
+Similarly, we use Arsenic for creating the gate in N-well. Uses Mask 5.
+![gate formation](https://github.com/user-attachments/assets/4d8cea5f-9933-45cf-8cf4-1c49cdda723e)
+
+Because of the ion implantations, the SiO2 is damaged. So, we remove it using dilute HF acid and then another thin 10nm high quality Silicon Oxide is grown.  
+Now, in order to create the gate, a thick layer of polysilicon is grown.  
+![Poly silicon](https://github.com/user-attachments/assets/c5d83fc1-561c-432f-9fa0-6aff66b6ecd5)
+
+As the gate layer is supposed to have low doping, we implant with N-type phosphorous or Arsenic ions to give low resistance gaet.  
+Next Mask6 is used to etch the Polysilicon and create a Gate.  
+![Gate formation](https://github.com/user-attachments/assets/5767c37e-acc4-4559-bbdc-a804ee3d5fb3)
+
+##### Lightly Doped Drain Formation
+We need a LDD because of the following reasons:
+1. Hot Electron Effect - High energy carriers can break the Si-Si bond and enter into the oxide layer present above the substrate.
+2. Short Channel Effect - For short channels, the drain penetrates the channel. Therefore it will be difficult to control the gate current.
+
+For creating Nmos, we use N-type impurity, mask the N-well region using Mask7 and the ion implant the N- concentraion (Lightly doped).  
+The energy of phosphorous is chosen so that it does not penetrate deep into the well.  
+![N- drain](https://github.com/user-attachments/assets/deeddf78-3e05-4084-8260-480b2c1fa885)
+
+Similarly using Mask8, the P- drain is created for the Pmos. Boron is used.  
+![P- drain](https://github.com/user-attachments/assets/ca76d634-d5f6-4ff6-8654-a27cc467b3c3)
+
+In order to protect from further Source and Drain formation, 0.1um Silicon Nitride or Silicon Oxide is deposited on complete structure. Then Plasma anisotopic etching is done to retain only the oxide on the side walls.  
+Side walls help to keep the LDDs intact.  
+![plasma etching](https://github.com/user-attachments/assets/02246ae3-4388-46ba-ae13-a5aaf0f4d0f7)
+
+##### Source and Drain Formation
+A thin layer of oxide is added to avoid chanelling.  
+![oxide layer](https://github.com/user-attachments/assets/6fcd375e-a1a9-4b77-b348-f1308e65fae6)
+
+N+ doping is done using Arsenic. Mask 9 is used.  
+![N+ doping](https://github.com/user-attachments/assets/9b14250c-4df9-4375-903f-dc14ca75c91b)
+
+P+ doping is done using Boron. Mask 10 is used.  
+![P+ doping](https://github.com/user-attachments/assets/11b3928b-a9d9-4809-aa53-64caa3e9ca5c)
+
+Annealing is done in a high temperature furnace to help grow the P+ and N+ regions deeper.  
+![annealing](https://github.com/user-attachments/assets/123a0a58-951f-4a5d-acbe-083c6f0cd8b7)
+
+##### Contact and Local Interconnect Formation
+Remove the thin SiOxide using HF Acid. Now G, S and D are open for connections.  
+We deposit Titanium on wafer surface using Sputtring.  
+![Ti deposit](https://github.com/user-attachments/assets/c0f09b08-0659-4130-b1fc-3d88f028c31b)
+
+Next it is heated in presence of Nirogen to form low resistance TiSi2 which is used for contacts.
+![contacts](https://github.com/user-attachments/assets/71379f9f-6c2e-445a-b586-cd08f0f50095)
+
+It also forms a layer of TiN that is used for local communication.  
+![local interconnects](https://github.com/user-attachments/assets/b5ded419-f8b5-41a9-a116-cfe089df9d69)
+
+To bring up the contacts to the top level, we use Mask11. Drains of PMOS and NMOS can be connected internally, But the sources, may be conncted to different points, so they need to be brought up.  
+![Bringing up contacts](https://github.com/user-attachments/assets/56c2ada8-642c-40c8-9154-3f3e35aebc29)
+
+##### Higher Level Metal Formation
+The current surface is non planar, so we will deposit a layer of SiO2 with boron.  
+![SiO2 with boron](https://github.com/user-attachments/assets/cd8e4710-6fa2-47e6-a66b-ca166742b7e6)
+
+To create a planar surface CMP is done.  
+![CMP](https://github.com/user-attachments/assets/a0fbfe79-6ebe-4caa-a00b-e770cbb280cd)
+
+Then, contact holes are drilled using Mask12 and thin layer of Titanium Nitride is deposited and Blanket Tungstun layer is added.  
+![final CMP](https://github.com/user-attachments/assets/1107c2cc-b0df-4be1-bb25-aa5db6447f6b)
+
+To connect blanket Tungtun layer to higher metal layer, we deposit Aluminium. Mask13 is used.  
+![Al layer](https://github.com/user-attachments/assets/d245494e-2bec-45e9-bd4d-df17e71cd869)
+
+Again for another layer of interconnects the process is repeated. Mask 14, Mask 15 and 16 are used to bring contacts to higher levels.
+![final inverter formation](https://github.com/user-attachments/assets/43844e92-bd84-4073-97f4-ab19c0ad0dd9)
+
+#### Viewing the layout of an inverter in Magic
+The region where Poly crosses N-diffusion layer is NMOs and the region where Poly crosses P-diffusion is PMOS.  
+![NMOS](https://github.com/user-attachments/assets/0d8c0c7c-9ca9-4ff5-9714-98fcdce74e69)
+![PMOS](https://github.com/user-attachments/assets/f6533d51-0f7c-4bf9-80e3-ec9982d6658d)
+
+Drain of the PMOS and NMOS is connected to the Output Y.  
+![drain connection](https://github.com/user-attachments/assets/5e048d67-6108-45bc-ba72-93b7cc7dbcd8)
+
+Source of PMOS connected to VDD line.  
+![VDD](https://github.com/user-attachments/assets/2011bdab-a2fe-49c2-978f-405e2faf505d)
+
+Source of NMOS is connected to Ground.  
+![GND](https://github.com/user-attachments/assets/edfd8109-a11e-4a75-b252-44e985f73ee8)
+
+> [!Note]
+> ALl the steps to create Layout of inverter from scratch in magic is provided in the Git Repo - https://github.com/nickson-jose/vsdstdcelldesign.git
+
+If certain parts of the inverter are deleted then Magic shows DRC errors. I have deleted the N-well here, and it is now shoeing 7 DRC errors.
+![DRC errors](https://github.com/user-attachments/assets/0736b7e5-f51c-44c5-ae91-37f4d34a85c8)
+
+We can go to DRC -> Next DRC Error and view the error in the tkcon window.  
+![review drc errors](https://github.com/user-attachments/assets/3f4437ab-d3d3-4d44-aa79-ceaf81c43ceb)
+
+To know the logical function of this layout, we extract it and do a spice simulation.  
+Commands to extact and perform spice simulation in tkcon window of Magic:  
+```
+extract all
+ext2spice cthresh 0 rthresh 0
+ext2spice
+```
+Commands executed in Magic Tkcon window:  
+![commands for extraction of layout](https://github.com/user-attachments/assets/376555f6-910f-4974-a514-fa8f10cb2bb5)
+
+Ext file dumped from Magic  
+![sky.ext file](https://github.com/user-attachments/assets/8f0e2c91-bc09-41b4-9257-71bacb2d0e1e)
+
+Ext file should be converted to Spice to be used in simulation. Here X0 is the NMOS. Similarly X1 is the PMOS.  
+![sky.spice ](https://github.com/user-attachments/assets/85bd349a-38c0-459b-b8f9-13423331eab5)
+
+#### Characterization of inverter using sky130 model files
+We have to modify the Spice extracted layout to perform a simulation. Include the VDD and the Gnd and the input signal. And also the NMOS and PMOS Model files.   
+The grid is 0.01 micron as seen from the Magic Layout. So this also has to be corrected in the Spice Deck.  
+![grid](https://github.com/user-attachments/assets/22d4034f-eca2-4efb-97d3-d0e18a110d31)
+
+Modified Spice file to run transient Ananlysis:  
+![Mod Spice](https://github.com/user-attachments/assets/fbc80e17-3f39-438c-b721-90e5a69a2c84)
+
+Commands to run ngspice:  
+```
+ngspice sky130_inv_sim.spice
+> plot Y vs time a
+```
+ngspice simulation:  
+![image](https://github.com/user-attachments/assets/b73fcdbd-a04e-4abe-8768-307e0a0c1ffc)
+
+Output Transient analysis plot from Spice Simulation:  
+![output](https://github.com/user-attachments/assets/57c52dc8-c054-4f6e-9719-3fc674056670)
+
+**Calculation of Rise Transition Delay:**  
+It is the time taken for the output to rise from 20% to 80% of the supply voltage.  
+20% of 3.3V = 0.66V  
+80% of 3.3V = 2.64V  
+
+Time stamps for 20% and 80%:  
+![Time stamps for 20% and 80%](https://github.com/user-attachments/assets/5d59e4fd-0d63-4b79-9361-f5aa6108e90c)
+**Rise transition time = 2.24581ns - 2.18212ns = 63.69ps**  
+
+**Calculation of Fall Transistion Delay:**  
+It is the time taken for the output to fall from 80% to 20% of the supply Volatge.
+Time stamps for 80% and 20%:  
+![Fall transition](https://github.com/user-attachments/assets/64616bb2-dc14-499d-ac87-c7f7f2f7cad9)
+**Fall transition time = 8.09519 - 8.05277 = 42.42ps**  
+
+**Calculation of Rise Cell Delay/Propagation Delay:**  
+Rise cell delay = Time at which output rises to 50% - Time at which input falls to 50%
+50% of Supply Voltage = 50% of 3.3V = 1.65V  
+
+Time stamps at which Output rises to 1.65V and input falls to 1.65V:  
+![Rise cell delay](https://github.com/user-attachments/assets/bada7c5e-cd5e-43fe-88b8-f66f6155c1c8)
+**Rise Cell Delay = 6.21104ns - 6.15ns = 61.04ps**  
+
+**Calculation of Fall Cell Delay/Propagation Delay:**
+Fall Cell Delay = Time at which output falls to 50% - Time at which input rises to 50%  
+
+Time stamps at which output falls to 1.65V and input rises to 1.65V:  
+![Fall cell delay](https://github.com/user-attachments/assets/864c482f-fd4d-43fc-ae79-02532d367ca3)
+**Fall Cell Delay = 8.0777ns - 8.05ns = 27.7ps**  
+
+#### Identifying DRC issues using Magic DRC Engine
+> [!Important]
+> Link to learn more about Magic - http://opencircuitdesign.com/magic/  
+> Check out the DRC related tutorial  
+> Refer the DRC commands section  
+> Learn about Technology Files  
+> CIF output format  
+> Link to learn about Skywater PDK - https://skywater-pdk.readthedocs.io/en/main/index.html  
+> Github link to Skywater PDK - https://github.com/google/skywater-pdk
+
+Now, let us download a skywater magic tech file and associated files to perform some DRC tests.  
+Commands:  
+```
+# Change to home directory
+cd
+# Command to download the lab files
+wget http://opencircuitdesign.com/open_pdks/archive/drc_tests.tgz
+# Command to view the files
+ls -lrt
+# Command to extract it
+tar -vxfz drc_tests.tgz
+# Command to view the files
+ls -lrt
+# Change directory into the lab folder
+cd drc_tests
+# List all files and directories present in the current directory
+ls -lrta
+# Command to view .magicrc file i.e. the startup file for Magic
+gvim .magicrc
+# Command to open magic tool in better graphics
+magic -d XR &
+```
+
+Snapshots of above commands:  
+![snap1](https://github.com/user-attachments/assets/e5a0e3d4-b238-4413-9d94-6cfc49992c15)
+![snap2](https://github.com/user-attachments/assets/4d2cd8f4-32ff-453e-b750-c8fda8ee197f)
+![snap3](https://github.com/user-attachments/assets/4bcaf87c-56d7-49e8-8a2a-045c66066fb8)
+
+Magic startup file:  
+![startup file](https://github.com/user-attachments/assets/9bf83e8b-aef3-4c0d-9ad9-7f3ff213b813)
+
+Magic Window:  
+![magic window](https://github.com/user-attachments/assets/e0ce5875-5ec7-4630-93b4-b25408fcc74e)
+
+Load the mat3.mag file into Magic from `Files -> Open`. Then Click on `DRC -> DRC update`. It will refersh with all the DRC errors. 
+![met3 mag file](https://github.com/user-attachments/assets/0e5edef3-ed2f-4a6d-a488-05da6b6699d0)
+
+Each of these layouts have DRC errors that are highlighted in white and each have a DRC rule number associated with it.  
+We can go to the periphery rules page on the [Skywater PDK docs page](https://skywater-pdk.readthedocs.io/en/main/rules/periphery.html#m3).  
+Select a layout and enter drc why in the tkcon window to know the reason for the DRC error.  
+![drc error 1](https://github.com/user-attachments/assets/25b18408-928a-4480-ba08-3229519ae448)
+
+We can check the reason for DRC error for all the cases:  
+![drc errs](https://github.com/user-attachments/assets/10939910-d7c4-4d1c-9818-56a994f4e3aa)
+
+In order to add geometries of Met3 on to the layout there are 2 options:
+1. Create a rectangle with left mouse click and right mouse click. Click on Metal 3 layer with Middle Mouse Button.
+2. Create a rectangle with left mouse click and right mouse click. Hover over Metal 3 layer and press p.
+
+Layout with newly added geometries on Metal 3.  
+![new m3](https://github.com/user-attachments/assets/e7b97f09-42a5-40db-b139-b1bc69314f19)
+
+The Command cif see VIA2 helps in viewing the Via2 cuts. The command snap int helps in selectin the layout geometries exactly with the internal grid aligned.
+![cif](https://github.com/user-attachments/assets/0cbbbd31-9bf0-4904-b625-fb8d51a2113f)
+
+The command `feed clear` clears the earlier selection.  
+![clear selection](https://github.com/user-attachments/assets/43ba0e0c-af29-4e99-b154-3f39cce4f1da)
+
+
+The distance between 2 geometries can be measured using box command by selecting the space between the metals. As you see here, the distance between 2 segments of metal 3 is less than 0.3um, Which is why the DRC error.  
+![measuring distance](https://github.com/user-attachments/assets/cd43c256-5b25-4d14-8a38-082ade3de0ba)
+
+##### Lab 1: Identifying DRC issues in poly layer
+Load the poly.mag file in Magic using tkcon commands `ls; load poly`:  
+![poly load](https://github.com/user-attachments/assets/ad12fd43-5d1e-40de-b558-698da2c8ce80)
+
+Look at poly.9 error and DRC rule:  
+![Ploy 9 rule](https://github.com/user-attachments/assets/c3689813-9cc6-4cf9-8ec7-896c20f1600a)
+
+Know the material of each segment by keeping the cursor over the segment, pressing S and typing what in the tkcon window:  
+![poly types](https://github.com/user-attachments/assets/23fe0e96-12df-4d39-82c8-4f4aabff14d5)
+
+Since the first vertical segment is a poly resistor and the horizontal segment is poly, we can say that this is related to poly.9 spacing rule.  
+Now measure the distance between the 2 segments by drawing a box between them.  
+![image](https://github.com/user-attachments/assets/6e3f217f-7c94-482f-9eb7-3c985d8bb8fc)
+
+We can see that the heigth of the box between them is just 0.21u instead of 0.48u as it should be according to DRC.  
+
+How do we fix this error?  
+Let us go into the sky130A.tech file and look at the poly.9 rules.  
+We see that the rule to define spacing between poly and poly resistor is missing and it needs to be added.  
+It is added in the 2 places that poly.9 rule is defined.  
+![poly 1](https://github.com/user-attachments/assets/cf09e9b2-e0a4-4f14-b79f-d1e0e39de67b)
+![poly 2](https://github.com/user-attachments/assets/99ca156c-878f-4776-a612-bae72b8ec5fa)
+
+Let us reload the tech file in Magic and run DRC to check if the issue is fixed. You can now see that the   
+Commands to be executed in tkcon:  
+```
+tech load sky130A.tech
+drc check
+```
+
+![DRC fix](https://github.com/user-attachments/assets/2ede8567-fc9c-4059-8c10-ab111f1b61c2)
+
+Polyres distance to diff and tap also needs to be fixed now.  
+Let us copy the 3 resistors as there are different types of diffusion and taps. Getting the related DRC errors.    
+![tap diff](https://github.com/user-attachments/assets/0b59d453-b98e-440f-bd64-b28a5daa427f)
+
+npolyres is not showing the DRC erorr w.r.t. the P Diffusion.  
+To fix this, we need to add the DRC rule in the tech file.  
+Changing the rule to include alldiff  
+![alldiff](https://github.com/user-attachments/assets/f182fb54-d1a7-4154-9868-5791ea51e6fd)
+
+All errors are identified after reloading the tech file and performing the DRC check:  
+![drc error](https://github.com/user-attachments/assets/41bba173-50d7-4a0d-bfca-dabc90081dfc)
+
+##### Lab 2: Describe DRC Erorr as geometrical Construct
+Complex DRC rules cannot be written as text in the tech files. They need to be shown as geometrical constructs.  
+This is acheieved with the help of drc style rules and cifmaxwidth rule as shown in the snapshots below:  
+![drc style rule](https://github.com/user-attachments/assets/a8fdccd5-0b99-47d0-8718-bb5a3a444696)
+![cifmaxwidth rule(https://github.com/user-attachments/assets/5644bc30-d08b-4fff-ab2f-97fdc757bc04)
+
+Now, let us open the nwell.mag file and load it in Magic.  
+![nwell file](https://github.com/user-attachments/assets/8e356c4d-9523-42a5-b7dd-c0ac6eb3dc44)
+
+You can see the error highlighted using `cif see` command:  
+![err highlight](https://github.com/user-attachments/assets/17c1f5f0-eee2-486b-8b22-4d53b1cb24ef)
+
+Cif based rules slow down Magic a lot. Therefore it is recommeneded to use regular edge based rules as much as possible.  
+
+Now, let us look athe nwell.4 DRC rule:  
+![nwell.4](https://github.com/user-attachments/assets/ee3420dc-b9a5-4d45-badd-d34d208bdbf4)
+
+In the layout, this is not highlighted as an error even though it does not contain the metal tap.  
+![nwell not high](https://github.com/user-attachments/assets/1df93220-f044-4b85-b85b-b0c25384f1d6)
+
+Therefore lets add cif commandts that run in full variant and save the Tech file.  
+![nwell rule 1](https://github.com/user-attachments/assets/8e867753-8ae3-400d-9637-62d53f7d0714)
+![nwell rule 2](https://github.com/user-attachments/assets/6aef2087-8efd-4dea-84dd-1893b1b8ca43)
+
+Load the tech file and run DRC in full style. You can see the DRC error getting highlighted now.  
+![highlighted](https://github.com/user-attachments/assets/718b15f8-1f30-4ae2-918e-ed53e367966e)
+
+When we put a nsubstrate contact on the nwell, the DRC error goes away showing that it has been correctly implemented.  
+![nwell contact](https://github.com/user-attachments/assets/4393a8ac-2bb6-4add-9bcb-91bd7d295fac)
