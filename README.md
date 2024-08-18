@@ -645,7 +645,7 @@ All this information is fed into a software called GUNA. It generates the timing
 Realization of buffer with 2 inverters:
 ![buffer](https://github.com/user-attachments/assets/eb4d7709-fe59-40b1-8dda-02e8ec6bf405)
 
-### General Timing Characterization Parameters
+##### General Timing Characterization Parameters
 Consider the previously used realization of buffer with 2 inverters.  
 There are certain timing threshold definitions for a waveform.  
 **Timing threshold definitions:**
@@ -1095,3 +1095,157 @@ Load the tech file and run DRC in full style. You can see the DRC error getting 
 
 When we put a nsubstrate contact on the nwell, the DRC error goes away showing that it has been correctly implemented.  
 ![nwell contact](https://github.com/user-attachments/assets/4393a8ac-2bb6-4add-9bcb-91bd7d295fac)
+
+### Pre-Layout Timing Analysis
+#### Extracting LEF File from Inverter layout
+A standard cell should follow the below guidelines:  
+1. Input and Output ports of the Std. Cell must lie on the intersection of Vertical and Horizontal Tracks.
+2. Width of the Std. Cell must be an odd multiple of the Horizonatal track pitch.
+3. Heigth of the Std. Cell must be an even multiple of the Vertical track pitch.
+
+Tracks are the metal lines on which the PnR tool creates the routing.  
+Let us open the tracks.info file and understand about the track offset and pitch for each layer.  
+Commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/pdks/sky130A/libs.tech/openlane/sky130_fd_sc_hd
+gvim tracks.info
+```
+Tracks.info file:  
+![tracks](https://github.com/user-attachments/assets/6cfbaff0-4b1b-4105-87c0-8eeccd1a683c)
+Here, li1 layer should have an offset of 0.23 and pitch of 0.46 in the X direction. So each track of li1 will be spaced 0.46u apart in the Horizontal direction.
+
+Let us open the inverter layout in Magic and verify the 3 conditions in the Layout.  
+Commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/vsdstdcelldesign
+magic -T sky130A.tech sky130_inv.mag &
+```
+The ports are on the li1 (locali) layer.  
+Let us enable the grids on the layout. Let us align the grid with the pitch of lil layer to see if the Input and Output pins are at the intersection of horizontal and vertical tracks.
+Let us provide X offset value for the X origin, Y offset for Y origin, X pitch for xSpacing and Y pitch for ySpacing.  
+Commands to be entered in tkcon window for creating grid that aligns with locali layer.  
+```
+help grid
+grid 0.46um 0.34um 0.23um 0.17um
+```
+Layout with New Grid:  
+![New grid](https://github.com/user-attachments/assets/5b045ddc-7b69-448e-add5-1508285f0798)
+
+The Routing of the li1 layer has to happen on this grid.  Let us zoom in and check if the A and Y pins are at the intersection of Horizontal and Vertical grid lines.  
+Yes, indeed they are located at the intersection. This ensures that the route can reach the pins from both the directions.  
+![A and Y](https://github.com/user-attachments/assets/613331ef-4949-42b3-91d1-5f43e094c9ea)
+
+Next, let us verify if the width of the Std. Cell is odd multiple of X pitch and the heigth of the Std. Cell is odd multiple of Y pitch.  
+![inv std cell](https://github.com/user-attachments/assets/84c1758d-ae48-4510-ab37-42aed94008be)
+
+The white box highlighted defines the boundary of the standard cell.
+We can see that it covers 0.5 + 1 + 1 + 0.5 = 3 boxes on the X-axis.  
+And it covers 8 boxes on the Y-axis.  
+So all the 3 requirements are met.  
+
+Then, we have to convert the labels to ports before extracting the LEF file.  
+Go to `Edit -> Text` and add the following:  
+![Ports](https://github.com/user-attachments/assets/cabe9627-d1e7-4856-b6a1-14dae207d032)
+This has to be repeated for all the ports A , Y , VPWR, VGND.  
+Since, it has already been done in the sample inverter, we can cancel this step.  
+
+Then, we have to define the purpose of each port.  
+![purpose of each port](https://github.com/user-attachments/assets/5d5d17f9-7a1d-4b32-8d40-87c0d73ff0a8)
+
+Commands for defining the purpose of each port in tkcon:  
+```
+# Select port A in the Layout and enter the commands
+port class input
+port use signal
+
+# Select port Y in the Layout and enter the commands
+port class output
+port use signal
+
+# Select VPWR in the Layout and enter the commands
+port class inout
+port use power
+
+# Select VGND in the Layout and enter the commands
+port class inout
+port use ground
+```
+After this, we can save and exit Magic in tkcon window:  
+```
+save sky130_vsdinv.mag
+exit
+```
+
+Now, let us open the newly saved custom inverter in Magic.  
+```
+magic -T sky130A.tech sky130_vsdinv.mag &
+```
+
+Enter the command to write LEF in the tkcon window:  
+```
+lef write
+```
+
+![lef write](https://github.com/user-attachments/assets/2129c1c4-f604-4356-9e57-ffe35ee5868e)
+
+This will create a LEF file with the name sky130_vsdinv.lef.  
+![LEF File](https://github.com/user-attachments/assets/a9f8302f-83bf-42a1-b47d-fbd951436946)
+
+Let us copy the LEF file to the src directory.  
+Command:
+```
+cd ~/Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/src/
+cp Desktop/work/tools/openlane_working_dir/openlane/vsdstdcelldesign/sky130_vsdinv.lef .
+```
+
+We have to include the Library with the custom cell characterization also in the src directory in order to be able to use in the ASIC design flow.  
+This library is a part of the tar bundle we downloaded and it is present under the libs. It has the sky130_vsdinv cell in it.  
+![lib with custom inverter](https://github.com/user-attachments/assets/cb10fd21-6f9c-4094-a3c1-bf93026e046d)
+
+Copying to src directory:  
+![cp cmd](https://github.com/user-attachments/assets/6b5d83c0-c490-42e4-889b-2c8843cbb435)
+
+We have to edit the config.tcl to include the custom cell LEF and the custom cell libs.
+Include below lines:
+```
+# For synthesis
+set ::env(LIB_SYNTH) "$::env(OPENLANE_ROOT)/designs/picorv32a/src/sky130_fd_sc_hd__typical.lib"
+
+# For timing analysis
+set ::env(LIB_FASTEST) "$::env(OPENLANE_ROOT)/designs/picorv32a/src/sky130_fd_sc_hd__fast.lib"
+set ::env(LIB_SLOWEST) "$::env(OPENLANE_ROOT)/designs/picorv32a/src/sky130_fd_sc_hd__slow.lib"
+set ::env(LIB_TYPICAL) "$::env(OPENLANE_ROOT)/designs/picorv32a/src/sky130_fd_sc_hd__typical.lib"
+
+# including new LEF
+set ::env(EXTRA_LEFS) [glob $::env(OPENLANE_ROOT)/designs/$::env(DESIGN_NAME)/src/*.lef]
+```
+
+![edited config](https://github.com/user-attachments/assets/165fb424-1d01-420a-aa2c-53b128b21917)
+
+Let us now open OpenLane and run the flow with our new inverter.
+```
+cd Desktop/work/tools/openlane_working_dir/openlane
+docker
+```
+
+Steps to run in OpenLane:  
+```
+./flow.tcl -interactive
+package require openlane 0.9
+prep -design picorv32a
+
+# Adiitional commands to include newly added lef to openlane flow
+set lefs [glob $::env(DESIGN_DIR)/src/*.lef]
+add_lefs -src $lefs
+# Synthesis
+run_synthesis
+```
+
+You can see that the Synthesis is successful and 1554 instances of our new inverter have been used in the design.  
+![succ synth](https://github.com/user-attachments/assets/99aced7d-2083-488a-b056-226029c5ae76)
+
+But you can notice that, slack has been violated here.  
+![slack violation](https://github.com/user-attachments/assets/4cdf8afb-4348-4d7c-8563-991c55c096d5)
+
+In the next section, we will look at how to improve the timing.  
+
