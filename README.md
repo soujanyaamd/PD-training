@@ -1245,7 +1245,374 @@ You can see that the Synthesis is successful and 1554 instances of our new inver
 ![succ synth](https://github.com/user-attachments/assets/99aced7d-2083-488a-b056-226029c5ae76)
 
 But you can notice that, slack has been violated here.  
+Total Negative slack (tns) = -711.59ps
+Worst Negative Slack (wns) = -23.89ps
 ![slack violation](https://github.com/user-attachments/assets/4cdf8afb-4348-4d7c-8563-991c55c096d5)
 
 In the next section, we will look at how to improve the timing.  
+
+#### Power Aware CTS
+Let us look at 2 Clock Gating structures with And and Or Gates.  
+![Clock Gates](https://github.com/user-attachments/assets/468e23ca-db5c-4f51-99a7-44a127118f3a)
+The advantage of Clock Gates is that the clock tree beyond the clock gate will not be switching when the clock gate is not enabled. Here there won't be any switching power consumed by the clock treee.  
+
+**How to use the clock gates?**  
+In the below clock tree, can the clock buffers cannot simply be swapped with the Clock Gate. Before swapping, we need to make sure the And Gate satisfies the timing constraints of the clock tree.  
+![Gating](https://github.com/user-attachments/assets/5f9edf51-321a-4aba-91d9-301e32366290)
+
+We can make the following observations from a closer look at the clock tree:  
+![clock tree](https://github.com/user-attachments/assets/e8a7e929-9047-4daa-96e7-137e1f190e21)
+
+The input transition time and output load for a clock buffer can vary for differnt conditions.  
+Therefore, delay tables are developed for each buffer.  
+The buffer is taken seperately and its input slew and output load are varied for a range of operatable values and the cell delay is captured in the form of a delay table.  
+This is known as timing characterization of a cell and it is done for all standard cells.  
+Delay table of CBUF of size 1 and size 2:    
+![delay table](https://github.com/user-attachments/assets/440badbf-6104-46b2-a4a2-1e2082266391)
+
+Let us now try to calculate the delay of the clock tree:  
+Say we simulate the tree with a signal having input slew of 40ps and the output load of the first CBUF is 60fF. The delay value is not directly avaialable in the table for this combination. So, it is extrapolated. Let us call this delay as x9'.
+Now let us say, signal arrived with 60ps transisiton time at Node A (this slew is also a function of input slew and load and can be obtained from the transition table). The output load is 50fF for each CBUF 2. So this delay is y15. Intersection of the 60ps row and 50fF column.  
+Therefore, total cell delay = x9' + y15 at each end point flop.  
+This implies that the skew between any 2 end points is 0.  
+![delay skew](https://github.com/user-attachments/assets/db576655-04ce-4122-a621-220188a070db)
+
+If the Clock Buffers were not driving the same loads and clock buffers, the delay value woud have been different and there would be clock skew at the end point.  
+
+If the flops are to be activate only during certain functionalities of the chip, then we can actually stop the clock propagation to the flop conditionally. This is done by adding the clock gates that we discussed earlier. This helps in power saving.    
+
+#### Timing aware Synthesis
+Let us open the OpenSTA timing report and look the path with worst slack.  
+![timing report wns](https://github.com/user-attachments/assets/f99261e0-55a3-422a-b519-e7abe6b33805)
+
+This path has some of the worst cell delays that have led to this kind of slack violation.
+
+In order to do a timing aware synthesis, we need to use the setting SYNTH_STRATEGY.  
+Below is its definition from the Readme file.  
+![synth strategy](https://github.com/user-attachments/assets/546fed0f-96fe-47fe-ba8a-eff3482fd22e)
+So, this variable heps in optimizing the Area or Delay while synthesis.
+If we set the value to Delay 3, it implies that it tries to minimize the delay, even though the area increases.  
+
+Another variable that can be set is SYNTH_BUFFERING that can enable the buffers to be added on high fanout nets to reduce the net delay.  
+Let us check its value. It is already set to 1.
+
+Then , we can check the variable SYNTH_SIZING which allows the tool to size the buffers as required. Let us check its value and set it to 1.
+
+We can also check the value of the SYNTH_DRIVING_CELL inorder to make sure that it is high drive strength cell. In this case it is the *_inv8 which already has good drive strength.
+
+Let us now run synthesis with there settings.
+
+Commands:  
+```
+echo $::env(SYNTH_STRATEGY)
+set ::env(SYNTH_STRATEGY) "DELAY 3"
+echo $::env(SYNTH_BUFFERING)
+echo $::env(SYNTH_SIZING)
+set ::env(SYNTH_SIZING) 1
+echo $::env(SYNTH_DRIVING_CELL)
+run_synthesis
+```
+
+Before running Synthesis let us note the value of Chip area and Slack to do a comparison:  
+> Chip Area: 147712.9184 um^2  
+> tns: -711.59ps  
+> wns: -23.89ps  
+
+![chip area](https://github.com/user-attachments/assets/53cbc853-a4ee-447f-927d-bc0468fbb6ca)
+
+Snapshots of command execution:  
+![synthesis settings](https://github.com/user-attachments/assets/81914402-0037-40ca-a356-b9d5f44cc8e5)
+
+After the execution, let us first check if our custom inverter has been included in the design.  
+In the below snapshot of merged.lef we can see that the MACRO sky130_vsdinv has been included.  
+![merged lef](https://github.com/user-attachments/assets/bfea4735-ca1a-4c16-9700-96281b35c26d)
+
+The area of the Chip is now increased, but the slack violations are not there.  
+> Area of the chip: 181730.544 um^2.
+> tns = 0
+> wns = 0
+
+Synthesis run snapshots:  
+![synth run](https://github.com/user-attachments/assets/f8440b46-2cca-4817-8e01-85a5a86023ac)
+![synth run 2](https://github.com/user-attachments/assets/c5c4e452-77b7-4b41-bd38-1e7d287f6b6b)
+
+Our inverter has been used in the timing paths and the timing is met.  
+![timing](https://github.com/user-attachments/assets/e0344eb1-b2a1-4ea2-8eb7-f08218389a5f)
+
+#### Floorplan and Placement
+Let us now run floorplan and placement.  
+Commands:  
+```
+run_floorplan
+```
+This is giving an error during the run as there are no MACROs in the picorv32a design.  
+![run floorplan](https://github.com/user-attachments/assets/01fe6230-a0eb-482c-bc9a-89ae9bec8ca7)
+![error](https://github.com/user-attachments/assets/01fea03c-4330-405a-9d9d-124f162560fd)
+
+Let us see how this error can be resolved. Let us take a look at the floorplan.tcl file that is internally executed when the run_florrplan command is executed.  
+Let us look for the MACRO related section here. The variable MACRO_PLACEMENT_CFG is not set in the openlane shell.  
+![macro var](https://github.com/user-attachments/assets/cb9a7a80-33fa-4ce6-8cc7-d7286a15c3ac)
+
+So, it is going to the else part and executing the commands - global_placement_or and basic_macro_placement
+![floorplan tcl](https://github.com/user-attachments/assets/3ca6e9d0-2934-4aab-b1c3-c35737011bd0)
+Therefore, the problem should be with either of these 2 commands, let us run them individually.
+First, let us check if the basic_macro_placement command is the problematic one as it is related to the Macros.  
+![macro err](https://github.com/user-attachments/assets/ed2508bc-9cb8-48a3-af2f-ab95fb2054a1)
+You can now verify that this is the step causing the issue as there are no macros in the deisgn.
+
+Therefore, let us break the floorplan step into micro commands and execute each command indivdually in the order it is present in the floorplan.tcl.  
+Below are those steps:
+```
+init_floorplan
+place_io
+apply_def_template
+global_placement_or
+tap_decap_or
+scrot_klayout -layout $::env(CURRENT_DEF)
+run_power_grid_generation
+```
+Snapshot of Commands run:
+![cmd 1](https://github.com/user-attachments/assets/d852a9b5-f539-4874-8e5b-7542d417ec0c)
+![cmd 2](https://github.com/user-attachments/assets/56a8b680-cab9-4283-a7c7-3538dd878236)
+![cmd 3](https://github.com/user-attachments/assets/93924948-168c-40e3-b012-fad47d152ca0)
+![cmd 4](https://github.com/user-attachments/assets/86d9cace-06a4-4f85-a26d-0cd32c1f2744)
+![cmd 5](https://github.com/user-attachments/assets/8de3f19f-0f4a-43df-8677-1b6a9a302da8)
+
+Now floorplan is executed successfully.
+
+Let us do the placement.  
+Command:  
+```
+run_placement
+```
+![placement cmd](https://github.com/user-attachments/assets/0ede93b2-2d1b-4a36-9598-8f2a5600fe2d)
+
+The overflow value should become as close to 0 as possible:  
+![overflow](https://github.com/user-attachments/assets/f9d9c3fd-7fb4-451f-9ed4-fb9bf9d70399)
+
+Placement is successful:  
+![placement](https://github.com/user-attachments/assets/9a88a828-2899-46a6-b256-ee95280a6687)
+
+Let us open Magic now to view the DEF after Placement.  
+Commands:
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/runs/19-08_03-05/results/placement/
+magic -T /home/vsduser/Desktop/work/tools/openlane_working_dir/pdks/sky130A/libs.tech/magic/sky130A.tech lef read ../../tmp/merged.lef def read picorv32a.placement.def &
+```
+
+Magic Layout after placement:  
+![image](https://github.com/user-attachments/assets/e2015901-fee9-4981-b6be-4a7d462a885f)
+
+Let us zoom in and find some instatiations of our custom inverter. You can find it in the snapshot below:  
+![inv custom](https://github.com/user-attachments/assets/7a175350-2577-4d92-b6d5-83e4527ce9c1)
+
+The overlap that we see between the cells is beacuse of abutment to share the Pwr and Gnd rails.  
+
+Typing command `expand` in the tkcon window shows the layers. We can see perfect alignment.  
+![layers](https://github.com/user-attachments/assets/f7eabb3f-e91f-494f-ac6e-16f2f5f602b1)
+
+With this we have confirmed that our custom inverter cell has been used in our design.  
+
+We can also see that the PDN has been routed:  
+**GND Rails:**  
+![GND](https://github.com/user-attachments/assets/c55ca7af-53f5-4471-b954-972af71b362d)
+
+**PWR Rails:**  
+![PWR](https://github.com/user-attachments/assets/735d6377-2812-482f-9ff4-8f6dbd6b764e)
+
+#### Timing Analysis with ideal clocks using OpenSTA
+##### Setup Timing Analysis with Single Clock
+Consider a basic design with a launch flop, capture flop and some combinational logic as shown here. Ideal clock implies that the clock tree is not yet built.  
+![Ideal clock setup](https://github.com/user-attachments/assets/f2f7c824-2af3-4b34-9335-343091fb38d1)
+
+This circuit is designed to be operated at 1GHz Frequency.  
+Therefore, the time period T = 1/F = 1/1G = 1ns.  
+The first rising edge of the clock reaches the Launch flop at 0ns and the 2nd rising edge of the clock reaches the Capture flop at 1ns.  
+The combinational logic data has to reach the Capture Flop before the 2nd rising edge of the clock reaches the capture flop and activates it.  
+Therefore, the delay in the signal travelling from Launch Flop to Capture Flop &Theta; < the time period of the Clock T.  
+&Theta; < T
+
+Let us now look at a practical Flop. A flop internally consists of 2 Mux.  
+![Mux implementation of flop](https://github.com/user-attachments/assets/f419d94b-7172-42f4-b12b-b17478ab1b95)
+When the Clock is at 0, the input at D is at the output of Mux1, Qm. And the output of Mux2 will be Q only.  
+When the Clock rises from 0 to 1, the output of Mux1 is Qm only and Qm is transferred to the output of Mux2.  
+Now, you see that there is a finite amount of time required for the input data to be transferred to output of Mux1 and from there to output of Mux2.
+The input data should be available at Qm before the clock rises so that when the clock rises to 1 it can be transfered to the output of the Mux2, i.e., the output of the flop.
+The time taken for the input data to come to the output of Mux1 is known as the Setup time of the Flop.
+
+Therefore, now our equation changes to:  
+&Theta; < (T-S)
+Where S is the setup time of the flop.  
+![setup time](https://github.com/user-attachments/assets/6d867479-5f26-4d3a-ad43-6add3042c8a3)
+
+Now, let us consider another practical scenario. In real designs, the clock is generated from a Phase Lockes Loop (PLL). This will not be an ideal clock. i.e., the clock edges will not arrive at exactly 0ns, Tns, 2Tns etc.  
+This temporary variation in clock period is called Clock Jitter. This uncertainity (SU) has to be accounted for in our setup check equation.  
+&Theta; < (T-S-SU)  
+![jitter](https://github.com/user-attachments/assets/03313008-1f74-4a40-a778-8a5517f9bc89)
+
+Let us consider the example circuit we had been using previously and identify the combinational delay &Theta;  
+For Clock path 1, the combinational delay is shown in the figure below. It includes the Launch flop Clk to Q delay, wire delays, combinational gate delays.  
+![combo delay1](https://github.com/user-attachments/assets/d10952a9-9edb-4873-b907-2cf46b19c673)
+
+For Clock path 2, there is no wire delays. So, the equation will be as shown below:  
+![combo delay 2](https://github.com/user-attachments/assets/9f2bf64e-afdc-4761-bc67-6766e1bd0b60)
+
+These 2 combinational delays &Theta; should be less than (T-S-SU).  
+
+##### Timing Analysis Lab
+The timing analysis is done using the tool OpenSTA.  
+Let us prepare the setup files for running the timing analysis in OpenSTA.  
+Pick up the sta.conf file from the previously downloaded git repo directory `vsdstdcelldesign`.  
+Copy paste it to the `openlane` directory.  
+Commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane
+cp vsdstdcelldesign/extras/sta.conf pre_sta.conf
+gvim pre_sta.conf
+```
+Let us now edit this file according to our design.  
+Enter the path to the min analysis liberty file and max analysis liberty file. They are present under the src directory.  
+Let us use the Verilog file from the run w/o timing optimized synthesis, so that we can see the slack numbers.
+The timing optimized synthesis run has 0 tns and 0 wns.  
+Then, fill the design name as picrv32a.  
+Now, for the SDC file, let us copy the file from the git repo directory `vsdstdcelldesign` and edit it to suit our requirements. It is also based on the `base.sdc` loacted in `openlane/scripts/base.sdc`.  
+Commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/src
+cp ../../../vsdstdcelldesign/extras/my_base.sdc .
+```
+
+Final pre_sta.conf file:  
+![pre_sta.conf](https://github.com/user-attachments/assets/37b965f0-7e2a-4b3b-9ed9-e1bc6407d232)
+
+Let us now look at the my_base.sdc file:  
+Here, we have to chnage the clock period to match our design: 24.73ns.  
+Let us verify the SYNTH driving cell, the output pin and load cap from the typical liberty file.  
+![base sdc](https://github.com/user-attachments/assets/25e63e44-97c6-46d3-af42-eedd3ab018ab)
+
+
+Let us now run STA using OpenSTA tool.  
+Commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane
+sta pre_sta.conf
+```
+OpenSTA timing analysis:  
+![result 1](https://github.com/user-attachments/assets/ea42d2a2-f657-4a8f-9753-6ba95976b112)
+![result 2](https://github.com/user-attachments/assets/4a09f9b0-0587-486e-814f-8f173b3ad646)
+
+Currently, we have not done the CTS yet, so the hold analysis will be overly optimistic.  
+Let us look at the setup analysis. In some stages we can see a high fan-out value of 5 or 6 and also correspindingly the delay of those stages is also high.  
+![setup ana](https://github.com/user-attachments/assets/5c5b7290-457a-4dd0-8492-46064d9ff6fd)
+
+Let us look at the variable to control the fanout of the cells from the Readme file. It is SYNTH_MAX_FANOUT.  
+![synth max fanout](https://github.com/user-attachments/assets/b24e1f85-aac6-4a6a-be19-d241c655ec6b)
+
+Let us define it in the OpenLane shell and re-run the timing analysis.  
+For this, we will re-use one of our previous runs which has been run till the synthesis step with the required configurations.  
+The SYNTH_MAX_FANOUT here is 6 as shown in the shell.  
+Let us set it to 4 and re-run synthesis.  
+Commands:  
+```
+package require openlane 0.9
+prep -design picorv32a -tag 18-08_18-16 -overwrite
+set lefs [glob $::env(DESIGN_DIR)/src/*.lef]
+add_lefs -src $lefs
+set ::env(SYNTH_SIZING) 1
+set ::env(SYNTH_MAX_FANOUT) 4
+echo $::env(SYNTH_DRIVING_CELL)
+run_synthesis
+```
+
+![synth with fan 4](https://github.com/user-attachments/assets/ab0a3bf4-6541-47ac-a349-f29dcca3d5a9)
+![synth with fanout 4](https://github.com/user-attachments/assets/b3d22661-cac6-4323-8df0-15206ff40c34)
+
+Results after Synthesis with Fanout 4.  
+![image](https://github.com/user-attachments/assets/d2652f1f-9064-4984-9f9d-750c541c46c2)
+
+As there was not much change in the slack values with Fanout set to 4, let us re-run with fanout = 2.
+Commands:  
+```
+package require openlane 0.9
+prep -design picorv32a -tag 18-08_18-16 -overwrite
+set lefs [glob $::env(DESIGN_DIR)/src/*.lef]
+add_lefs -src $lefs
+set ::env(SYNTH_SIZING) 1
+set ::env(SYNTH_MAX_FANOUT) 2
+echo $::env(SYNTH_DRIVING_CELL)
+run_synthesis
+```
+Improved slack after SYNTH_FANOUT was set to 2.
+![synth after fan out 2](https://github.com/user-attachments/assets/0757609c-c3ce-4de8-9deb-ff3802a8cb72)
+
+Let us now run Timing Analysis in OpenSTA and cross check our results.  
+The Verilog file in the pre_sta.conf has now been overwritten with the newly synthesised verilog file.  
+Execute the commands:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane
+sta pre_sta.conf
+```
+You can see that the slack numbers are the same and the tns has significantly come down.  
+![opensta fan 4](https://github.com/user-attachments/assets/dfb2f129-c206-4e71-a534-14662799ecf6)
+
+##### Timing ECO fixes by upsizing the cells
+Let us now try to reduce the slack for the worst path.  
+In this path, we see that the highlighted stage is adding a delay of 1.53ps.  
+![stage delay 1.53](https://github.com/user-attachments/assets/a69b8ce4-d9d4-407d-8be6-368f74a113dd)
+It is a OR gate with drive strength 2. Let us replace it with OR gate with drive strength 4.  
+Command:  
+```
+replace_cell _25892_ sky130_fd_sc_hd__or4_4
+```
+![replace cell](https://github.com/user-attachments/assets/c6c6fc6b-7f2c-4c36-a9bc-6505fe27cf10)
+
+Let us now report the slack of the same path again to check if the slack is reduced and the instance is replaced.  
+You can see that the instance has been replaced with Or gate with drive strength 4 and the stage delay has reduced to 1.026ps.
+![replaced cell](https://github.com/user-attachments/assets/abfa86c5-4bba-436e-98cc-1638932b4246)
+
+Slack of the path after replacement:  
+![slack of updated path](https://github.com/user-attachments/assets/4a4e3af7-b138-41d4-9b43-4a59cfb1d637)
+The Slack has reduced from -22.05ps to -21.5227ps
+
+Let us try to replace one more cell and reduce the slack.
+Here, we have identified one more stage which is contibuting 0.968ps delay.  
+![stage delay 2](https://github.com/user-attachments/assets/2d4ae38d-10c3-48d3-8df1-8edf4aec85be)
+
+Let us report the connections of the net it is driving.  
+Commands:  
+```
+report_net -connections _21773_
+```
+We can see that it is driving 2 cells of drive strength 2 and 1.
+![report connections](https://github.com/user-attachments/assets/29fa86ed-bc14-4e1b-8c3d-e4aadb01723b)
+
+Let us replace the cell with a higher drive strength cell:  
+```
+replace_cell _25921_ sky130_fd_sc_hd__or3_4
+```
+![replace cell](https://github.com/user-attachments/assets/e1c8077a-32c7-4b63-8e99-f52ba739934f)
+
+Let us re-check the slack for the path now. The instance is replaced.  
+![replaced instance](https://github.com/user-attachments/assets/1c00e6ac-419b-4320-b2cf-b6c279ce9001)
+
+Slack is now reduced to -21.178ps.  
+![reduced slack](https://github.com/user-attachments/assets/ed0144d3-f052-4b40-82de-8295caa1f3fc)
+
+We started with:
+> tns = -628.08ps  
+> wns = -22.05ps
+
+Now, we have:
+> tns = -613.38ps  
+> wns = -21.63
+
+Now in order to dump out the updated netlist, we have to use the `write_verilog` command.  
+```
+write_verilog /home/vsduser/Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/runs/18-08_18-16/results/synthesis/picorv32a.synthesis.v
+```
+![write verilog](https://github.com/user-attachments/assets/67b9dbcd-6824-4992-a747-a57bc51fb735)
+
+In order to confirm that the updated netlist is dumped out, let us search for the updated cell in the new verilog file.  
+![new verilog](https://github.com/user-attachments/assets/24369285-3d32-4269-bf8a-1baaeef7b18c)
+We can see that the instace has been replaced with an instance of OR gate with strength 4.
 
