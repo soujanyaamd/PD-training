@@ -1616,3 +1616,241 @@ In order to confirm that the updated netlist is dumped out, let us search for th
 ![new verilog](https://github.com/user-attachments/assets/24369285-3d32-4269-bf8a-1baaeef7b18c)
 We can see that the instace has been replaced with an instance of OR gate with strength 4.
 
+### Clock Tree Synthesis
+#### Theory
+Consider our previously used Floorplan. The flops highlighted below need to be connected to Clock port 1.  
+![cts1](https://github.com/user-attachments/assets/644aa7e8-23fd-44ad-ae79-87e2d3c47be3)
+
+If we simply connect these 4 flops to clk1 as shown above, then there will be a difference between the arrival time of the clock at flop1 when compared to flop2.  
+This differece in time is known as skew. And skew should be as close to 0ps as possible.  
+![skew](https://github.com/user-attachments/assets/b3f684d9-5ae2-4a26-89d3-141f0316df36)
+
+Now, let us connect the flops to the clock in a different way known as H-tree synthesis.  
+In H-tree synthesis, the tool caluclates the distance of the clock from each flop and tries to construct the clock routes from the mid point of these distances.  
+![h-tree clk1](https://github.com/user-attachments/assets/cfac8970-5369-4795-98dc-4d9944d5e1e5)
+
+In this kind of routing, the clk1 is reaching all the 4 flops almost at the same time.  
+
+Similarly, we can do it from clk2.  
+![h-tree clk2](https://github.com/user-attachments/assets/9a10749a-41f8-471c-824f-9d3fdffc5f8e)
+
+Now, due to the long distance of the clock routes, buffers are required along the path to re-construct the signal and maintain the signal integrity.  
+Due to the physical nature of the clock routes (RC network), the signal at the clock port is not replicated at the flop input.  
+![phy ckt](https://github.com/user-attachments/assets/4c803bfb-2e33-4d8b-bca8-55d66c80c3ee)
+
+The clock buffers have equal rise and fall time. This may not be the case with data repeaters.  
+The final clock tree, after adding the repeaters (red Buffers):  
+![buffering](https://github.com/user-attachments/assets/571a01e8-0033-4aaa-8084-9c71b9cc0d1e)
+
+Clock Tree Shielding is the process of protecting the clock routes from cross-talks.  
+If a net is not shielded, it can have glitches. i.e., the switching on the adjacent agressor net can cause a switching on the victim clock net.
+This can result in an unexpected signal at the output of the victim net.  
+![image](https://github.com/user-attachments/assets/b52be359-790f-4e53-8e13-a13ebc54b79d)
+
+In order to prevent glitches, shields are added to the clock network. Here, a net is added on either side of the victim net. These shield nets are connected to either VDD or Ground rails as these rails do not switch and so the proabability of the victim net switching is reduced.  
+
+There is another problem known as crosstalks that affects the skew. Consider the scenario shown in the below figure.  
+Say the 2 nets are swithcing simultaneously. Then, the victim's switching is affected by the aggressor's switching and adds an additional delay in the victim net.  
+Therefore, the H-tree designed will not be ideal as considered before. The clock will not reach all the flops at the same time.
+![skew due to crossstalk](https://github.com/user-attachments/assets/113d76d5-3350-434f-b7bb-f6430dd58d08)
+
+Final CTS with Clock Shielding:  
+![shielding](https://github.com/user-attachments/assets/d8b6face-53d3-4a88-92dc-5bea8909882b)
+
+#### Lab
+For this section, let us re-use our design with 0 tns and 0 wns and run the CTS.
+```
+prep -design picorv32a
+
+set lefs [glob $::env(DESIGN_DIR)/src/*.lef]
+add_lefs -src $lefs
+
+set ::env(SYNTH_STRATEGY) "DELAY 3"
+set ::env(SYNTH_SIZING) 1
+
+run_synthesis
+
+init_floorplan
+place_io
+tap_decap_or
+
+run_placement
+
+run_cts
+```
+Execution of run_cts command:  
+![run_cts](https://github.com/user-attachments/assets/364c38d0-e6aa-47fa-868f-0b75e5853e60)
+Snapshots from the run:  
+![cts out 1](https://github.com/user-attachments/assets/086036e8-51c7-4e00-ae3f-09c03af2b28c)
+![cts out 2](https://github.com/user-attachments/assets/738fc4a5-295e-4940-bad2-3f65d118d258)
+![cts out 3](https://github.com/user-attachments/assets/bfcf0c89-eacb-4053-aa14-eed889d7f452)
+![cts out 4](https://github.com/user-attachments/assets/5a318602-b335-40de-8b72-682dd31146a2)
+![cts out 5](https://github.com/user-attachments/assets/1ca93561-d1e4-4c88-94d0-4e50441aa679)
+
+**What exactly happend behind the command run_cts?**
+For each command like run_synthesis, run_placement, run_cts that are executed in openlane, there is a corresponding tcl script that contains the procs to be executed when the particular command is executed in the openlane shell.  
+For e.g., this is the cts.tcl file:  
+![cts.tcl](https://github.com/user-attachments/assets/0c9f2901-a57e-4d6f-9530-c478263a357d)
+
+This is internally calling the script or_cts.tcl.  
+![or_cts.tcl](https://github.com/user-attachments/assets/4e6e716c-04cb-453d-89a7-57053c376694)
+
+Values of some of the variables used for CTS:  
+![cts variables](https://github.com/user-attachments/assets/3c1a4866-8b07-4c1e-84ae-4cdef9b9c15e)
+
+#### Timing Analysis with Real Clocks
+##### Setup Timing Analysis
+Before CTS, the clock path did not have buffers. i.e. the clocks were ideal.  
+But after CTS, the clock path has buffers and the clocks are not ideal anymore.  
+Consider the circuit shown in the below figure:  
+![real timing](https://github.com/user-attachments/assets/f163a15b-539b-4518-a6fa-e13c4eabc3e8)
+Initailly, the clock edge used to arrive at the Launch flop at 0ns. But now, due to the buffers on the path, even though the clock port is simulated at 0ns, the clock edge reaches the launch flop after a delay of clkbuf1 and clkbuf2.  
+Also, the next edge reaches the capture flop at T+delay of clkbuf1 + clkbuf3 + clkbuf4.  
+Therfore, now the setup constraint becomes,  
+&Theta; + (delay1 + delay2) < T + (delay1 + delay3 + delay4)  
+&Theta; + &Delta;1 < T + &Delta;2
+
+The setup and clock jitter uncertainities still hold good and have to be applied as shown in the figure below:  
+![skew](https://github.com/user-attachments/assets/ea39d768-9fcc-4fa2-9ce3-53d4e03e3758)
+Any circuit that satisfies this equation is set to operate at 1GHz. If it does not satisfy this equation, then the circuit will not function at 1GHz.  
+
+**What is Slack?**
+Slack is the difference between data required time and data arrival time.
+Slack should be positive for the circuit to function as intended. i.e., data arrival time should be less than data required time.  
+If slack is negative, then there is a timing violation. We need to fix the violations to proceed with the design.  
+
+![slack](https://github.com/user-attachments/assets/fb159894-e6de-4b78-8ebf-683121236131)
+
+##### Hold Timing Analysis
+Consider the interior of a Capture Flop with 2 Muxes.  
+![hold time](https://github.com/user-attachments/assets/dbd3d0f8-1157-4973-b3ee-d6a20595c22b)
+When the clock is at 1, the Mux2 of the Capture flop sends Qm to output Q. This takes a finite amount of time that is equal to the internal delay of Mux2.  
+During this time interval, the capture flop does not expect to get any new data at its input.  
+So it asks the Launch flop to hold the data until it is done with the process of transferring Qm to the output.  
+
+Therefore, the combinational delay &Theta; from Launch flop to the Capture flop should be greater than the Hold time of the capture flop H.  
+![hold constraint ideal](https://github.com/user-attachments/assets/9461ffc6-759b-40f2-a1b6-0707cb789be4)
+
+With real clocks, the equation becomes as follows:  
+![real Hold](https://github.com/user-attachments/assets/c484a445-4cb3-4258-8ff2-a8322990e450)
+
+Defining Slack w.r.t Hold timing Analysis:  
+In Hold timing analysis, as it is only one edge that comes to the launch flop and capture flop, the clock jitter uncertainity is less compared to setup analysis.  
+![slack](https://github.com/user-attachments/assets/35147e2b-1d00-4f16-b36c-acb74ba0711b)
+
+In this case, slack = data arrival time - data required time
+Slack should be positive. Negative slack means that the combinational logic is too fast and the data is arriving before the hold time of the capture flop.  
+
+Coming to our example, let us identify &Delta;1 and &Delta;2:  
+![Setup eg](https://github.com/user-attachments/assets/e08795c2-de5e-4294-bc12-9d131d968539)
+![hold eg](https://github.com/user-attachments/assets/bb65768f-5ba7-40fe-a2a9-96df61905e56)
+
+#### Lab: Post CTS timing analysis
+Let us enter into OpenRoad within the openlane shell in order to run OpenSTA to do a timing analysis.  
+As we are invoking OpenSTA from within openlane, all the variables that were defined in the flow previously are retained and can be used.  
+Let us now run the commands to create a db in OpenRoad that can be re-used for running any anaylsis. For that we read in the lef and def files.  
+Commands:  
+```
+openroad
+read_lef /openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/merged.lef
+read_def /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/cts/picorv32a.cts.def
+write_db pico_cts.db
+read_db pico_cts.db
+read_verilog /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/synthesis/picorv32a.synthesis_cts.v
+read_liberty $::env(LIB_FASTEST)
+read_liberty $::env(LIB_SLOWEST)
+read_liberty $::env(LIB_TYPICAL)
+link_design picorv32a
+read_sdc /openLANE_flow/designs/picorv32a/src/my_base.sdc
+set_propagated_clock [all_clocks]
+report_checks -path_delay min_max -fields {slew trans net cap input_pins} -format full_clock_expanded -digits 4
+```
+
+Execution of commands in OpenRoad:  
+![openroad1](https://github.com/user-attachments/assets/b9445b96-4924-4102-b785-fd1e559b79a7)
+![openroad2](https://github.com/user-attachments/assets/caf26ef6-0e5e-461b-87b9-8802b804e7d7)
+![openroad3](https://github.com/user-attachments/assets/91c908de-5bd3-4e8c-994b-9f3a7e94a065)
+![openroad4](https://github.com/user-attachments/assets/69d7cecd-140a-44e6-8810-051eff58f025)
+
+Even though the slack is met and there are no violations, there is a problem with this analysis because, this could be wrong as Openlane does not yet support analysis for multiple corners.  
+So, now let us define only the typical library and re-do the timing analysis.  
+
+First exit openlane and re-enter it to read the db and do the analysis:  
+Commands:  
+```
+exit
+openroad
+read_db pico_cts.db
+read_verilog /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/synthesis/picorv32a.synthesis_cts.v
+read_liberty $::env(LIB_TYPICAL)
+link_design picorv32a
+read_sdc /openLANE_flow/designs/picorv32a/src/my_base.sdc
+set_propagated_clock [all_clocks]
+report_checks -path_delay min_max -fields {slew trans net cap input_pins} -format full_clock_expanded -digits 4
+```
+
+Commands successfully executed and the slack is met for all setup and hold paths.  
+![hold met](https://github.com/user-attachments/assets/7db2a91b-e3b7-40a0-86b8-39dfee07fc2e)
+![setup met](https://github.com/user-attachments/assets/888ad4f1-ad92-428d-91e3-339dba8485e3)
+
+#### Lab: Perform CTS with a modified CLK Buffer List
+Let us check the impact of bigger buffers in the Clock tree on Slack.  
+To do this, let us exit the OpenRoad shell and go back into the OpenLane flow shell.  
+To do the CTS, we had a variable called CTS_CLK_BUFFER_LIST that had all the cells that could be used by the CTS engine to synthesise the clock tree.  
+The CTS engine picks up the buffers starting from the lowest drive strength and tries to meet the slack. If it is not met then it proceeds to the buffer of higher drive strength.  
+The higher the drive strength, the larger the area of the buffer. Hence, this stategy is used to pick the buffers.  
+
+Let us now enter the below commands and modify the CTS_CLK_BUFFER_LIST and re-run CTS.  
+```
+echo $::env(CTS_CLK_BUFFER_LIST)
+set ::env(CTS_CLK_BUFFER_LIST) [lreplace $::env(CTS_CLK_BUFFER_LIST) 0 0]
+echo $::env(CTS_CLK_BUFFER_LIST)
+echo $::env(CURRENT_DEF)
+# Setting def as placement def
+set ::env(CURRENT_DEF) /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/placement/picorv32a.placement.def
+run_cts
+```
+![buf change](https://github.com/user-attachments/assets/6e1b36a7-695a-4123-bd06-bd86c1210931)
+![runcts1](https://github.com/user-attachments/assets/50741666-680c-400a-b146-d12024bf036c)
+![runcts2](https://github.com/user-attachments/assets/aac4e5ff-3e70-4d83-b306-e58a0431d5b8)
+![runcts3](https://github.com/user-attachments/assets/d369f3a1-14fd-4e4f-9adf-8e22aed4fb1f)
+
+Let us now do the post CTS timing analysis in OpenRoad.  
+Commands:  
+```
+openroad
+echo $::env(CTS_CLK_BUFFER_LIST)
+read_lef /openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/merged.lef
+read_def /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/cts/picorv32a.cts.def
+write_db pico_cts1.db
+read_db pico_cts.db
+read_verilog /openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/synthesis/picorv32a.synthesis_cts.v
+read_liberty $::env(LIB_TYPICAL)
+link_design picorv32a
+read_sdc /openLANE_flow/designs/picorv32a/src/my_base.sdc
+set_propagated_clock [all_clocks]
+report_checks -path_delay min_max -fields {slew trans net cap input_pins} -format full_clock_expanded -digits 4
+report_clock_skew -hold
+report_clock_skew -setup
+exit
+```
+
+Command executions:  
+![cmd1](https://github.com/user-attachments/assets/aa25be5a-c73d-4452-8032-fffc27496f32)
+You can see that the hold slack has improved from 0.077ps to 0.2546ps.  
+![hld imp](https://github.com/user-attachments/assets/fda18cf2-87a7-4a3f-9961-f4627a9c0882)
+And in the Clock path *_buf1 have not been used. The Setup slack has remained the same.
+The area has taken a hit due to the use of increased size buffers.  
+![setup stat](https://github.com/user-attachments/assets/beb42c9d-fff7-4349-b2fc-963437005976)
+
+Clock Skew values can also be reported.  
+![image](https://github.com/user-attachments/assets/9ad47fff-1a71-4de0-a3e8-08c4532201ae)
+
+In order to insert the Clkbuf1 back to the variable, we can use the following commands:  
+```
+echo $::env(CTS_CLK_BUFFER_LIST)
+set ::env(CTS_CLK_BUFFER_LIST) [linsert $::env(CTS_CLK_BUFFER_LIST) 0 sky130_fd_sc_hd__clkbuf_1]
+echo $::env(CTS_CLK_BUFFER_LIST)
+```
+![insert buf](https://github.com/user-attachments/assets/d025c206-fbd1-48ac-8405-ce0fcf9222a7)
+
