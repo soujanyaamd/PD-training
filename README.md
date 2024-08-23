@@ -540,7 +540,7 @@ Floorplan with FP_IO_MODE 0. The IO pins are not equidistant and are not placed 
 #### Binding Netlist with Physical cells
 In this process, the gates of the netlist such as AND gates, OR Gates, Flipflops etc, are given a physical representation and dimension. All these Gates and their dimensions are present in the library.
 The library also has the timing information of the cells like gate delays, FF setup and hold time, etc.
-It will also have the **When Conditions** of a cell.  
+It will also have the When Conditions of a cell.  
 A library has different variants of a gate, for eg. it can have Buffers of 1x Area, 2x Area and 4x Area. These have the same functionality, but the 4X Buffer will have more drive strength and it will be faster.  
 The designer can pick up the required variant based on the timing constraints and area constraints of the design.
 Different Variants of cells in a library:  
@@ -587,9 +587,6 @@ DEF after Standard Cells placement is completed:
 
 Standard Cells placed within the Standard cell rows:  
 ![Std cells](https://github.com/user-attachments/assets/39e6900e-a596-459c-a07e-12b6cfe7147f)
-
-> [!NOTE]
-> In Openlane flow, the PDN is not implemented during the Floorplan, it is done after Placement, CTS and Routing.
 
 ### Cell Design and Library Characterization Flows
 #### Inputs for Cell Design Flow
@@ -1339,7 +1336,7 @@ Synthesis run snapshots:
 Our inverter has been used in the timing paths and the timing is met.  
 ![timing](https://github.com/user-attachments/assets/e0344eb1-b2a1-4ea2-8eb7-f08218389a5f)
 
-#### Floorplan and Placement
+#### Floorplan
 Let us now run floorplan and placement.  
 Commands:  
 ```
@@ -1380,6 +1377,25 @@ Snapshot of Commands run:
 
 Now floorplan is executed successfully.
 
+#### Power Grid Routing
+Let us explore a bit into the Power Grid Routing Stage.  
+This is the typical routing of power rails and ground rails on a chip:  
+![PDN](https://github.com/user-attachments/assets/75757d5e-e1a6-4168-bd2f-dc18ec9c2a9f)
+The power is supplied to the Power and Ground pads of the chip. The pads are connected to the Power / Ground rings that run around the chip.  
+From the rings, power enters into Vertical straps and the horizontal metal strips.  
+The standard cells are aligned with the horizontal metal strips so as to tap the power and ground lines.
+
+Let us look at the PDN log file and identify the metal layers used for creating the Power Grid.  
+![image](https://github.com/user-attachments/assets/1dcdc921-316a-40ad-8df7-dd5b62de83ee)
+
+We can also see that the PDN has been routed after the floorplan step:  
+**GND Rails:**  
+![GND](https://github.com/user-attachments/assets/c55ca7af-53f5-4471-b954-972af71b362d)
+
+**PWR Rails:**  
+![PWR](https://github.com/user-attachments/assets/735d6377-2812-482f-9ff4-8f6dbd6b764e)
+
+#### Placement
 Let us do the placement.  
 Command:  
 ```
@@ -1412,13 +1428,6 @@ Typing command `expand` in the tkcon window shows the layers. We can see perfect
 ![layers](https://github.com/user-attachments/assets/f7eabb3f-e91f-494f-ac6e-16f2f5f602b1)
 
 With this we have confirmed that our custom inverter cell has been used in our design.  
-
-We can also see that the PDN has been routed:  
-**GND Rails:**  
-![GND](https://github.com/user-attachments/assets/c55ca7af-53f5-4471-b954-972af71b362d)
-
-**PWR Rails:**  
-![PWR](https://github.com/user-attachments/assets/735d6377-2812-482f-9ff4-8f6dbd6b764e)
 
 #### Timing Analysis with ideal clocks using OpenSTA
 ##### Setup Timing Analysis with Single Clock
@@ -1854,3 +1863,160 @@ echo $::env(CTS_CLK_BUFFER_LIST)
 ```
 ![insert buf](https://github.com/user-attachments/assets/d025c206-fbd1-48ac-8405-ce0fcf9222a7)
 
+### Routing
+Routing involves finding the best possible way to connect 2 points. There are a lot of Routing Algorithms.  
+**Maze Routing - Lee's Algoritm**
+The Algorithm first creates a grid known as a Routing grid with standard dimensions. Then it identifies a Source and a Target that need to be connected on the grid.  
+All the grids adjacent to the Source grid are labelled "1". Then adjacent grids of "1" are labelled as "2". Similarly, the process is repeated till we reach the target grid.  
+If there are routing bloackages, then the grids under it cannot be used for routing.  
+![grid routing](https://github.com/user-attachments/assets/67a7d6e4-347d-4b29-91c5-05c6523be9ca)
+Now there are multiple ways to reach the Target from the Source. Routes with single bends are preferred. Therefore, the below route is chosen.  
+![route](https://github.com/user-attachments/assets/f245ab90-f291-46ef-9c75-f884de844467)
+
+The problem with this algoritm is that it takes a lot of memory and it is time consuming.  
+There are other algorithms that use line search algorithm etc.
+
+Let us consider another example of the route.  
+![eg2](https://github.com/user-attachments/assets/1f628f46-4823-4cbb-ae88-cf5274f4f0aa)
+
+After Final Routing:  
+![final route](https://github.com/user-attachments/assets/3042647f-1445-441b-a606-2ec6fa12ae00)
+
+Routing in OpenLane is done using the TritonRoute Engine. It has 2 phases: Fast Route (Global Route) and a Detailed Route.  
+![phases](https://github.com/user-attachments/assets/c0a9c494-3c83-4a15-b219-d7ea1fea86e2)
+
+Global Route outputs a Route Guide for each net. The detailed Route follows this grid to connect the pins.
+For Detail Routing TritonRoute follows MILP panel based routing that uses intra-layer parallel and inter-layer sequential routing.  
+
+How are pre-processed routing guides formed in Fast Route?  
+![route guides](https://github.com/user-attachments/assets/2cbdb12f-bd59-4316-b064-f7e8db311a22)
+Each metal layer has a preferred direction of Routing. Say M1 is vertical and M2 is horizontal.  
+First, inital route guides are created using one metal layer, say M1 between 2 pins A and B.  
+Now, this has a segment of the route guide in horizaonal diretion which is not preferred for M1. So, that segment is split on the grid lines. Now there are 7 routing guide segments after splitting.  
+The next step is to merge the edges which are orthogonal to the preferred routing direction.  
+The next step will be to bridge the orthogonal segments with Metal 2 that has the preferred direction of routing as horizontal.  
+Then the overlapping grids are identified.  
+
+It is important to route the nets with alternate layers to reduce the capacitance formed at the orthogonal turns of the nets.  
+
+If 2 adjacent layers have non-zero overlap area, then these are connected with a Via.
+![connectivity](https://github.com/user-attachments/assets/7ff5d565-0162-4a27-82c6-a85e3a638167)
+
+Routing on the same metal layer happens paralelly and routing on Mn, Mn+1 layers takes place sequentially.  
+![inter and intra](https://github.com/user-attachments/assets/f4c2e05d-222e-4e51-bfa6-a118b2b3867a)
+
+We can describe the problem statemt for Triton Route as follows:  
+![Triton route](https://github.com/user-attachments/assets/8fee5729-ba43-4331-9a6d-8e9d86ca2257)
+
+In order to handle the connectivity, TritonRoute has something called AccessPoints(AP) and Access Point Clusters (APCs).  
+Consider this figure where a via has to be placed between M1 and M2. M1 is already routed and its routing track is shown in purple.  
+M2 routing tracks are the dashed lines.  
+The via can be placed on any one of the 5 dashed lines to form a connectivity.  
+![M1 M2](https://github.com/user-attachments/assets/110d67b9-e07f-4cf3-bfb9-ba732f582d4d)
+
+The next 2 scenarios are to connect the Pin shapes and connecting upper layer to lower layer.  
+![APs and APCs](https://github.com/user-attachments/assets/6b26a2ea-c2cb-4b87-9ee5-da19b05ab7c0)
+
+Below is the TritonRoute Algorithm to find the Minimal spanning tree(MST) connecting the APCs.  
+![Algo](https://github.com/user-attachments/assets/695641ea-603f-4d25-b850-320d6f19bebb)
+
+Let us now execute the Routing Commands in the Lab:
+Let us look at the switches available for Routing in the Readme file.  
+![readme](https://github.com/user-attachments/assets/65f2d2a8-0f1e-44a8-ae1f-7a7277839baf)
+
+Command to execute Routing:  
+```
+run_routing
+```
+
+Snapshots of Routing Run:  
+Routing Command execution, start of Global Routing:  
+![rout1](https://github.com/user-attachments/assets/8e49c6a9-2dbc-417d-8f9b-545b9fb1a3bd)
+
+Start of Detailed Routing:  
+![rout2](https://github.com/user-attachments/assets/1ad0ec9d-35fe-460f-8bac-69d1bd831d15)
+
+No DRC violations after Routing:  
+![rout3](https://github.com/user-attachments/assets/250bb173-54bb-4ae7-8d80-47967e6708af)
+![rout4](https://github.com/user-attachments/assets/f73de5a9-30d5-4e47-aeb0-f2c0f27e1dcc)
+
+Routing successfully completed:
+![rout5](https://github.com/user-attachments/assets/a79a1853-5a09-4556-8639-1477363a3483)
+
+Let us now look at the files generated during and after routing stage.  
+Routing guide file generated after global routing:  
+![route guides file](https://github.com/user-attachments/assets/6d7dd920-468a-425a-b9a4-92693b373da9)
+One of these routing guides are selcted during detailed routing for the particular net.  
+
+After Global Routing, we can see that Antenna Diodes have also been inserted into the design:  
+![antenna diodes](https://github.com/user-attachments/assets/1e24c3cc-7d69-4c27-8c1a-3b2aebb0e9a0)
+
+DEF file in Magic after Routing:  
+Command to open the DEF file:  
+```
+cd Desktop/work/tools/openlane_working_dir/openlane/designs/picorv32a/runs/22-08_14-14/results/routing/
+magic -T /home/vsduser/Desktop/work/tools/openlane_working_dir/pdks/sky130A/libs.tech/magic/sky130A.tech lef read ../../tmp/merged.lef def read picorv32a.def &
+```
+![Routed DEF1](https://github.com/user-attachments/assets/d6c28ce1-fb52-409d-981c-e5497cd4236b)
+![Routed DEF2](https://github.com/user-attachments/assets/8bcf6ed5-f18b-459e-9807-9fe80f0df11c)
+![Routed DEF3](https://github.com/user-attachments/assets/d63e8525-6524-4ca8-8f98-3b1fb6d78a33)
+
+### Design Rule Checks
+For any pair of parallely routed wires, there are typically 3 design rules:  
+1. Minimum Width of the Wire
+2. Minimum Spacing between the Wires
+3. Minimum pitch between the Wires - centre to centre distance
+
+![width](https://github.com/user-attachments/assets/fe47aaab-e98f-471f-87fb-c9ebc863c78e)
+![pitch](https://github.com/user-attachments/assets/8aac744f-dd48-4cce-9e29-53faf02172cb)
+![spacing](https://github.com/user-attachments/assets/92bacd9d-52fc-4e2f-845e-2de9bc72acc0)
+
+The Routing Algorithm needs to keep in mind all the DRC rules while creating the routes.  
+
+Consider 2 orthogonal nets that are routed on the same metal layer. Then there is a problem of Signal Short.  
+In order to resolve this problem, another metal layer that is above the given metal is intoduced to route the one net at the intersecting place.  
+![orthogonal shorts](https://github.com/user-attachments/assets/06d84e92-ca01-4cf6-8e45-caa8e7be51cb)
+
+Solution to Shorts Problem:  
+![solution](https://github.com/user-attachments/assets/75ffbfde-26c5-4610-9e1b-38f55d2c5e26)
+
+In this kind of routing, additional routes need to be checked.  
+1. The minimum Via Width needs to be checked for this kind of routing.  
+2. The minimum Spacing between the Vias need to be maintained.
+
+![rule 4](https://github.com/user-attachments/assets/7fa9ad83-92bc-449a-bbdb-030595484e11)
+![rule 5](https://github.com/user-attachments/assets/64efbdf7-8a58-420e-9f58-091484e351b6)
+
+### Parasitic Extraction
+![rc extraction](https://github.com/user-attachments/assets/93da41ba-5106-47ce-840b-afdad7832468)
+
+The next step of the flow is to extract the parasitics of the nets.
+Previously this was a separate step, now it has been integrated into the Routing stage.  
+Part of routing log that shows that parasitic extraction is completed.  
+![spef extraction log](https://github.com/user-attachments/assets/44c33e10-ac41-4616-b54b-15ca6a0a1ef1)
+
+Command executed internally to do the SPEF extraction:  
+![spef extraction](https://github.com/user-attachments/assets/88931f6a-9335-4942-baca-e84fbc468c78)
+
+Spef file generated after Parasitic extraction:
+Units and Name Map Section:  
+![spef1](https://github.com/user-attachments/assets/95740c07-fdd5-4fd5-9330-b28df55df157)
+
+Net Connections Section:  
+![spef2](https://github.com/user-attachments/assets/dc9de5cd-9765-43b2-854b-de96b51b10cc)
+
+### Post-Route STA Analysis
+You can see that once routing is completed the openlane flow has executed the OpenSTA to do a post-route timing analysis.  
+Command executed to do the timing analysis:  
+![timing cmd](https://github.com/user-attachments/assets/bc8f9f49-7bbb-4ba7-a0ac-4d8dba515701)
+
+OpenSTA Log file:  
+![log](https://github.com/user-attachments/assets/3c48d264-165e-4bde-88d0-e3901f1a98f6)
+
+OpenSTA Timing Report:  
+Slack met for Hold Analsysis:  
+![hold](https://github.com/user-attachments/assets/fe287d50-cfbf-41dd-9b4f-cafa96a87d02)
+Slack met for Setup Analysis:  
+![setup](https://github.com/user-attachments/assets/afb07d39-7ad6-4558-848f-2d6a00928474)
+
+With this we have completed the Physical Design Flow.
