@@ -1,0 +1,40 @@
+* SPICE3 file created from sky130_inv.ext - technology: sky130A
+* Modified to run analysis
+
+* Set grid value as per the layout
+.option scale=0.01u
+
+* Included Spice Model files of the Pmos and Nmos
+.include ./libs/pshort.lib
+.include ./libs/nshort.lib
+
+* Modifying the PMOS and NMOS Model names to match those defined in the spice model files
+M1000 Y A VPWR VPWR pshort_model.0 w=37 l=23
++ ad=1.44n pd=0.152m as=1.52n ps=0.156m
+M1001 Y A VGND VGND nshort_model.0 w=35 l=23
++ ad=1.44n pd=0.152m as=1.37n ps=0.148m
+
+* Defining Power and Ground
+VDD VPWR 0 3.3V
+VSS VGND 0 0V
+
+* Adding a Load Cap
+Cload Y 0 2fF 
+
+* defining input pulse
+Va A VGND PULSE(0V 3.3V 0 0.1ns 0.1ns 2ns 4ns)
+
+C0 VPWR Y 0.117f
+C1 A Y 0.0754f
+C2 A VPWR 0.0774f
+C3 Y VGND 0.279f
+C4 A VGND 0.45f
+C5 VPWR VGND 0.781f
+//.ends
+
+* SPecifying the analysis to be performed
+.tran 1n 20n
+.control
+run
+.endc
+.end
