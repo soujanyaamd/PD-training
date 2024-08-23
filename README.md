@@ -1,6 +1,6 @@
 # Advanced Physical Design using OpenLANE and Sky130 PDK
-> This repository is developed as a part of Digital VLSI SoC Design and Planning Workshop conducted by VLSI System Design.  
-> The training is arraged by Ansys Software Pvt. Lmt.  
+> This repository is developed as a part of Physical Design Training conducted by VLSI System Design.  
+> The training is arranged by Ansys Software Pvt. Lmt.  
 > The training covers the RTL2GDSII Workflow.
 
 ## How to talk to computers?
@@ -2021,7 +2021,7 @@ Slack met for Setup Analysis:
 
 With this we have completed the Physical Design Flow.
 
-> **References and Acknowledgements:**  
-> This repo is developed based on the [Physical Design Course](https://www.vlsisystemdesign.com/advanced-physical-design-using-openlane-sky130/) offered by [VLSI System Design](https://www.vlsisystemdesign.com/vsd-iat/).  
-> [Kunal Ghosh](https://www.linkedin.com/in/kunal-ghosh-vlsisystemdesign-com-28084836/?originalSubdomain=in), Co-founder VLSI System Design  
-> [Nickson Jose](https://www.linkedin.com/in/nickson-jose/), Couse Content Developer and Presenter
+## References and Acknowledgements
+This repo is developed based on the [Physical Design Course](https://www.vlsisystemdesign.com/advanced-physical-design-using-openlane-sky130/) offered by [VLSI System Design](https://www.vlsisystemdesign.com/vsd-iat/).  
+[Kunal Ghosh](https://www.linkedin.com/in/kunal-ghosh-vlsisystemdesign-com-28084836/?originalSubdomain=in), Co-founder VLSI System Design  
+[Nickson Jose](https://www.linkedin.com/in/nickson-jose/), Couse Content Developer and Presenter
