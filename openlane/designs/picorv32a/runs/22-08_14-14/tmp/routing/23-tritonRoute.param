@@ -1,0 +1,11 @@
+lef:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/merged_unpadded.lef
+def:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/routing/21-addspacers.def
+guide:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/routing/20-fastroute.guide
+output:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/results/routing/picorv32a.def
+outputTA:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/routing/23-tritonRoute_TA.def
+outputguide:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/routing/23-tritonRoute.guide
+outputDRC:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/reports/routing/23-tritonRoute.drc
+outputMaze:/openLANE_flow/designs/picorv32a/runs/22-08_14-14/tmp/routing/23-tritonRoute_maze.log
+threads:4
+verbose:1
+drouteEndIterNum:64
