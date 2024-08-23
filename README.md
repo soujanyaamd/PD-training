@@ -2024,4 +2024,4 @@ With this we have completed the Physical Design Flow.
 ## References and Acknowledgements
 This repo is developed based on the [Physical Design Course](https://www.vlsisystemdesign.com/advanced-physical-design-using-openlane-sky130/) offered by [VLSI System Design](https://www.vlsisystemdesign.com/vsd-iat/).  
 [Kunal Ghosh](https://www.linkedin.com/in/kunal-ghosh-vlsisystemdesign-com-28084836/?originalSubdomain=in), Co-founder VLSI System Design  
-[Nickson Jose](https://www.linkedin.com/in/nickson-jose/), Couse Content Developer and Presenter
+[Nickson Jose](https://www.linkedin.com/in/nickson-jose/), Course Content Developer and Presenter
