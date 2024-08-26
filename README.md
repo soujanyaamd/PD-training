@@ -1,6 +1,6 @@
 # Advanced Physical Design using OpenLANE and Sky130 PDK
 > This repository is developed as a part of Physical Design Training conducted by VLSI System Design.  
-> The training is arranged by Ansys Software Pvt. Lmt.  
+> The training is arranged by Ansys Software Pvt. Ltd.  
 > The training covers the RTL2GDSII Workflow.
 
 ## How to talk to computers?
